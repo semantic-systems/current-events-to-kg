@@ -1,0 +1,5 @@
+beautifulsoup4
+OSMPythonTools
+rdflib
+requests
+SPARQLWrapper
