@@ -1,20 +1,23 @@
-import argparse 
+# Copyright: (c) 2022, Lars Michaelis
+# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+import argparse
+import logging
 import string
-from src.inputHtml import InputHtml
-from src.outputRdf import OutputRdf
-from src.outputJson import OutputJson
-from src.extraction import Extraction
-from src.analytics import Analytics
-from src.nominatimService import NominatimService
-from src.wikidataService import WikidataService
-from rdflib import Graph
 from os import makedirs
-from os.path import split, abspath
+from os.path import abspath, split
+from pathlib import Path
 from pprint import pprint
 
-import logging
-from pathlib import Path
+from rdflib import Graph
 
+from src.analytics import Analytics
+from src.extraction import Extraction
+from src.inputHtml import InputHtml
+from src.nominatimService import NominatimService
+from src.outputJson import OutputJson
+from src.outputRdf import OutputRdf
+from src.wikidataService import WikidataService
 
 if __name__ == '__main__':
     __progName__ = "current-events-to-kg"

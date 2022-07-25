@@ -1,3 +1,6 @@
+# Copyright: (c) 2022, Lars Michaelis
+# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+
 class Article():
     def __init__(self, link, locFlag, coords, infobox, ibcontent, articleGraph, templates, 
             infoboxWkts, wikidataWkts, wikidataEntity, wikidata_one_hop_graph, parent_locations_and_relation,
