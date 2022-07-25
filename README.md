@@ -27,3 +27,9 @@ python -m main -s 3/2021 -e 3/2021 -msd 2 -med 2
 The generated knowledge graph has the following schema:
 
 ![Datset graph schema](Schema.drawio.png)
+
+## License
+GNU General Public License v3.0 or later
+
+See [COPYING](COPYING) to see the full text.
+
