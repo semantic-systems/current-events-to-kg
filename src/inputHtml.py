@@ -45,12 +45,12 @@ class InputHtml(Sleeper):
     def __requestWithThreeTrysOn110(self, url):
         for t in range(3):
             try:
-                diff = self.sleepUntilNewRequestLegal(self.cooldown)
-                
+                diff, waited = self.sleepUntilNewRequestLegal(self.cooldown)
+
                 #exclude first diff with >8000000
                 if diff >= 0:
                     self.analytics.timeBetweenRequest(diff)
-                    self.analytics.waitTimeUntilRequest(self.cooldown - diff)
+                    self.analytics.waitTimeUntilRequest(waited)
 
                 
                 self.analytics.numDownloads += 1
