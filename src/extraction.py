@@ -8,6 +8,7 @@ from datetime import datetime
 from string import Template
 from typing import List, Dict, Optional, Tuple, Union
 import logging
+from os import makedirs
 
 from bs4 import BeautifulSoup, NavigableString, Tag
 from rdflib import Graph
@@ -39,17 +40,19 @@ class Extraction:
         self.wikidataService = wikidataService
         self.args = args
         
-        # logger init
+        # debug logger init
+        logdir = self.basedir / "logs"
+        makedirs(logdir, exist_ok=True)
+
         timeParseErrorLogger = logging.getLogger('timeParseError')
         timeParseErrorLogger.setLevel(logging.DEBUG)
-        timeHandler = logging.FileHandler(self.basedir / "timeParseError.log", encoding='utf-8')
+        timeHandler = logging.FileHandler(logdir / "timeParseError.log", encoding='utf-8')
         timeHandler.setFormatter(logging.Formatter('%(message)s'))
         timeParseErrorLogger.addHandler(timeHandler)
 
-
         dateParseErrorLogger = logging.getLogger('dateParseError')
         dateParseErrorLogger.setLevel(logging.DEBUG)
-        dateHandler = logging.FileHandler(self.basedir / "dateParseError.log", encoding='utf-8')
+        dateHandler = logging.FileHandler(logdir / "dateParseError.log", encoding='utf-8')
         dateHandler.setFormatter(logging.Formatter('%(message)s'))
         dateParseErrorLogger.addHandler(dateHandler)
 

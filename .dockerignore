@@ -1,0 +1,8 @@
+.gitignore
+cache*/
+dataset*/
+analytics*/
+logs*/
+.vscode/
+*__pycache__/
+Schema.drawio*
