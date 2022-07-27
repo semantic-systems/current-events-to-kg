@@ -50,7 +50,7 @@ If you change `-msd` or `-med`, only a part of each month is parsed. The output 
 
 ## Graph types
 The generated graphs are subdivided into four graph types: 
-- **base**: the main graph with useful information
+- **base**: the main graph
 - **ohg**: includes the one hop subgraphs for each Wikidata entity
 - **osm**: includes the OSM Nominatim [well-known text](https://en.wikipedia.org/wiki/Well-known_text_representation_of_geometry) for the outlines of locations with its Types and IDs (this graph ca. 10x larger than base)
 - **raw**: raw HTML where information was extracted from e.g. the Wikipedia infobox
