@@ -43,6 +43,21 @@ docker build -t current-events-to-kg .
 ./run-container.sh -s 3/2021 -e 3/2021 -msd 2 -med 2
 ```
 
+## Output
+For each parsed month a file for each graph type (base, ohg, osm and raw) gets saved as `{month}_{year}_{graph type}.jsonld`, e.g. `January_2022_base.jsonld`.
+
+If you change `-msd` or `-med`, only a part of each month is parsed. The output of partial month parsing gets saved as `{msd}_{med}_{month}_{year}_{graph type}.jsonld`, e.g. `1_2_January_2022_base.jsonld` When you parse only the first two days.
+
+## Graph types
+The generated graphs are subdivided into four graph types: 
+- **base**: the main graph with useful information
+- **ohg**: includes the one hop subgraphs for each Wikidata entity
+- **osm**: includes the OSM Nominatim [well-known text](https://en.wikipedia.org/wiki/Well-known_text_representation_of_geometry) for the outlines of locations with its Types and IDs (this graph ca. 10x larger than base)
+- **raw**: raw HTML where information was extracted from e.g. the Wikipedia infobox
+
+Because the URIs match in all graph types for each entity, you can just import them in a modular way and it unifies again.
+
+
 ## Schema
 The generated knowledge graph has the following schema:
 
