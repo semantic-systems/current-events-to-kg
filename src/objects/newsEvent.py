@@ -3,7 +3,7 @@
 
 class NewsEvent():
     def __init__(self, raw, parentTopics, text, links, wikiLinks, articles, 
-            sourceUrl, day, sentences, sourceLinks, sourceText, eventTypes, eventIndex):
+            sourceUrl, day:int, month:int, year:int, sentences, sourceLinks, sourceText, eventTypes, eventIndex):
         self.sourceUrl = sourceUrl #eg https://en.wikipedia.org/wiki/Portal:Current_events/January_2022
         self.raw = raw
         self.parentTopics = parentTopics
@@ -12,6 +12,8 @@ class NewsEvent():
         self.wikiLinks = wikiLinks
         self.articles = articles
         self.day = day
+        self.month = month
+        self.year = year
         self.sentences = sentences
         self.sourceLinks = sourceLinks #Links to eg a CNN article
         self.sourceText = sourceText

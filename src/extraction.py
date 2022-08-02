@@ -25,6 +25,8 @@ from src.objects.topic import Topic
 from src.wikidataService import WikidataService
 from src.dateTimeParser import DateTimeParser
 
+from src.etc import month2int
+
 
 class Extraction:
 
@@ -740,7 +742,7 @@ SELECT DISTINCT ?i WHERE {
                                 self.analytics.numEventsWithType += 1
 
                             e = NewsEvent(x, parentTopics, text, links, wikiArticleLinks, articles, 
-                                    sourceUrl, day, sentences, sourceLinks, sourceText, eventTypes, evnum) 
+                                    sourceUrl, day, month2int[monthStr], year, sentences, sourceLinks, sourceText, eventTypes, evnum) 
 
                             self.analytics.event()
                             self.outputData.storeEvent(e, graphs)

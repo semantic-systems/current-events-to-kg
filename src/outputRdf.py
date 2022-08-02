@@ -156,25 +156,37 @@ class OutputRdf:
         if self.args.sample_mode and event.parentTopics[0].text != "2021–2022 Boulder County fires":
             return
 
+        # type
         base.add((evuri, RDF.type, n.Event))
         base.add((evuri, RDF.type, NIF.Context))
+        
+        # save date
+        base.add((evuri, n.day, Literal(event.day, datatype=XSD.nonNegativeInteger)))
+        base.add((evuri, n.month, Literal(event.month, datatype=XSD.nonNegativeInteger)))
+        base.add((evuri, n.year, Literal(event.year, datatype=XSD.nonNegativeInteger)))
+
         raw.add((evuri, n.raw, Literal(str(event.raw), datatype=XSD.string)))
+
+        # string
         base.add((evuri, NIF.isString, Literal(str(event.text), datatype=XSD.string)))
         base.add((evuri, NIF.beginIndex, Literal(0, datatype=XSD.nonNegativeInteger)))
         base.add((evuri, NIF.endIndex, Literal(len(event.text), datatype=XSD.nonNegativeInteger)))
 
+        # source (wikipedia/Portal...)
         sourceUri = URIRef(event.sourceUrl)
         base.add((evuri, NIF.sourceUrl, sourceUri)) 
         base.add((sourceUri, RDF.type, FOAF.Document))
         
         self.__addParentTopics(evuri, event.parentTopics, base)
 
+        # wikidata type
         for entityId, label in event.eventTypes.items():
             cluri = BNode()
             base.add((evuri, n.eventType, cluri))
             base.add((cluri, n.eventTypeLabel, Literal(str(label), datatype=XSD.string)))
             base.add((cluri, n.eventTypeURI, URIRef(WD[entityId])))
 
+        # the news sources
         for l in event.sourceLinks:
             sluri = BNode()
             base.add((evuri, n.hasSource, sluri))
@@ -184,6 +196,7 @@ class OutputRdf:
             base.add((hrefuri, RDF.type, FOAF.Document))
             base.add((sluri, n.sourceLinkText, Literal(str(l.text), datatype=XSD.string)))
 
+        # sentences
         lastSentenceUri = None
         sentences = event.sentences
         for i in range(len(sentences)):
@@ -200,12 +213,17 @@ class OutputRdf:
                 base.add((suri, NIF.previousSentence, lastSentenceUri))
                 base.add((lastSentenceUri, NIF.nextSentence, suri))
 
+            # links per sentence
             links = sentence.links
             articles = sentence.articles
             for j in range(len(links)):
                 article = articles[j]
                 link = links[j]
+
+                # link
                 self.__addLinkTriples(base, suri, n.hasLink, link)
+                
+                # article
                 if article:
                     auri = URIRef(link.href)
                     self.__addArticleTriples(graphs, auri, article)
