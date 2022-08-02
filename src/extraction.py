@@ -522,12 +522,14 @@ SELECT DISTINCT ?i WHERE {
             self.analytics.numArticlesWithOsmrelid +=1
             for x in osmrelids:
                 res = self.nominatimService.lookup("relation/" + x)
+                # id, type and wkt could be None!
                 wiki_wkts.append(OSMElement(res.id(), res.type(), res.wkt()))
         elif len(osmobjs) >= 1:
             articleWithWkt = True
             self.analytics.numArticlesWithOsmobj +=1
             for x in osmobjs:
                 res = self.nominatimService.lookup(x)
+                # id, type and wkt could be None!
                 wiki_wkts.append(OSMElement(res.id(), res.type(), res.wkt()))
         
         # get wkts from infobox loctaion value link labels

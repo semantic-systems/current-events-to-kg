@@ -61,9 +61,12 @@ class OutputRdf:
         osmuri = BNode()
         graph.add((target, relation, osmuri))
         graph.add((osmuri, RDF.type, n.OSMElement))
-        graph.add((osmuri, n.osmType, Literal(str(osmElement.osmType), datatype=XSD.string)))
-        graph.add((osmuri, n.osmId, Literal(str(osmElement.osmId), datatype=XSD.integer)))
-        graph.add((osmuri, n.osmWkt, Literal(str(osmElement.wkt), datatype=GEO.wktLiteral)))
+        if osmElement.osmType:
+            graph.add((osmuri, n.osmType, Literal(str(osmElement.osmType), datatype=XSD.string)))
+        if osmElement.osmId:
+            graph.add((osmuri, n.osmId, Literal(str(osmElement.osmId), datatype=XSD.integer)))
+        if osmElement.wkt:
+            graph.add((osmuri, n.osmWkt, Literal(str(osmElement.wkt), datatype=GEO.wktLiteral)))
     
     def __addLinkTriples(self, graph, target, predicate, link) -> BNode:
         luri = BNode()
