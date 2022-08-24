@@ -61,7 +61,7 @@ if __name__ == '__main__':
         action='store_true', 
         help="Enable analytics which were useful during development, which normally would use unnessesary resources.")
     
-    parser.add_argument('-nmd', '--no_merged_dataset', 
+    parser.add_argument('-md', '--merged_dataset', 
         action='store_true', 
         help="Disable the creation of a merged Dataset of all months (saves RAM).")
     
@@ -177,7 +177,7 @@ if __name__ == '__main__':
     monthGraphs["raw"] = None
     monthGraphs["ohg"] = None
 
-    if not args.no_merged_dataset:
+    if args.merged_dataset:
         dataset = {g: Graph() for g in monthGraphs.keys()}
 
     while(year*100+month <= endYear*100+endMonth):
@@ -241,7 +241,7 @@ if __name__ == '__main__':
 
             
             
-            if not args.no_merged_dataset:
+            if args.merged_dataset:
                 # add month to resulting dataset
                 print("Merging month in dataset...", end="", flush=True)
                 for name in dataset.keys():
@@ -276,7 +276,7 @@ if __name__ == '__main__':
     combined.printAnalytics(title="Combined Analytics")
         
     
-    if not args.no_merged_dataset:
+    if not args.merged_dataset:
         # save dataset
         for name in dataset.keys():
             o.saveGraph(dataset[name], "dataset_" + name + ".jsonld")
