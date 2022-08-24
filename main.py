@@ -276,7 +276,7 @@ if __name__ == '__main__':
     combined.printAnalytics(title="Combined Analytics")
         
     
-    if not args.merged_dataset:
+    if args.merged_dataset:
         # save dataset
         for name in dataset.keys():
             o.saveGraph(dataset[name], "dataset_" + name + ".jsonld")

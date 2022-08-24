@@ -78,7 +78,7 @@ class Extraction:
                 childrenTextLength += len(childrenText)
 
             # extract own link
-            if(x.name == "a"):
+            if(x.name == "a" and "href" in x.attrs):
                 href = x["href"]
 
                 # add url prefix to urls from wikipedia links
