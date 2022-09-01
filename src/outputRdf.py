@@ -141,6 +141,10 @@ class OutputRdf:
             base.add((target, n.datePublished, Literal(str(article.datePublished), datatype=XSD.dateTime)))
         if article.dateModified:
             base.add((target, n.dateModified, Literal(str(article.dateModified), datatype=XSD.dateTime)))
+        if article.name:
+            base.add((target, n.name, Literal(str(article.name), datatype=XSD.string)))
+        if article.headline:
+            base.add((target, n.headline, Literal(str(article.headline), datatype=XSD.string)))
 
 
     
