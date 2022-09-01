@@ -40,7 +40,7 @@ class OutputRdf:
     
     def __getEventURIIndexBased(self, e):
         prefix = e.sourceUrl + "#"
-        suffix = str(e.day) + "_" + str(e.eventIndex)
+        suffix = str(e.date.day) + "_" + str(e.eventIndex)
         uri = Namespace(prefix)[suffix]
         return uri
 
@@ -165,9 +165,8 @@ class OutputRdf:
         base.add((evuri, RDF.type, NIF.Context))
         
         # save date
-        base.add((evuri, n.day, Literal(event.day, datatype=XSD.nonNegativeInteger)))
-        base.add((evuri, n.month, Literal(event.month, datatype=XSD.nonNegativeInteger)))
-        base.add((evuri, n.year, Literal(event.year, datatype=XSD.nonNegativeInteger)))
+        base.add((evuri, n.date, Literal(event.date.isoformat(), datatype=XSD.date)))
+
 
         raw.add((evuri, n.raw, Literal(str(event.raw), datatype=XSD.string)))
 
@@ -264,10 +263,17 @@ class OutputRdf:
         base.add((turi, RDF.type, n.Topic))
         base.add((turi, RDFS.label, Literal(str(topic.text), datatype=XSD.string)))
         
+        # store raw html topic link
         raw.add((turi, n.raw, Literal(str(topic.raw), datatype=XSD.string)))
 
+        # store date of usage of this topic
+        base.add((turi, n.usageDate, Literal(topic.date.isoformat(), datatype=XSD.date)))
+        
+        # store article behind link
         if topic.article:
            self.__addArticleTriples(graphs, turi, topic.article)
+        
+        # connect to parent topics
         if topic.parentTopics:
             for t in topic.parentTopics:
                 self.__addParentTopics(turi, topic.parentTopics, base)

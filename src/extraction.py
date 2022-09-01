@@ -4,7 +4,7 @@
 import copy
 import json
 import re
-from datetime import datetime
+import datetime
 from string import Template
 from typing import List, Dict, Optional, Tuple, Union
 import logging
@@ -284,7 +284,7 @@ class Extraction:
     
     
     def getDateAndTimeFromTopicInfobox(self, ib, templates, labels) -> \
-            Tuple[Dict[(str,InfoboxRow)], Dict[str, Dict[str, Union[bool,str,datetime]]], \
+            Tuple[Dict[(str,InfoboxRow)], Dict[str, Dict[str, Union[bool,str,datetime.datetime]]], \
             Dict[str, Tuple[List[str]]], Dict[str, str]]:
 
         def getTextAndLinksFromDateValue(self, valueTag):
@@ -414,7 +414,7 @@ class Extraction:
     
     def parseInfobox(self, ib, templates, topicFlag=False) -> \
             Tuple[Dict[str, InfoboxRow], 
-            Dict[str, Dict[str, Union[bool,str,datetime]]],
+            Dict[str, Dict[str, Union[bool,str,datetime.datetime]]],
             Dict[str, Tuple[List[str]]],
             Dict[str, str] ]:
         tib = [t for t in templates if re.match("template:infobox", t.lower())]
@@ -587,10 +587,10 @@ class Extraction:
         
         return articles
 
-    def parseTopic(self, t, parentTopics) -> list[Topic]:
+    def parseTopic(self, t, parentTopics, date:datetime.date) -> list[Topic]:
         if(isinstance(t, NavigableString)):
             # when parent is no link, but initial Topic without Link
-            return [Topic(t, t, None, None, None)]
+            return [Topic(t, t, None, None, None, date)]
         else:
             aList = t.find_all("a", recursive=False)
             # add italic topics
@@ -602,7 +602,7 @@ class Extraction:
                 # rare case when non inital topics have no link (14.1.2022 #4)
                 text, _ = self.getTextAndLinksRecursive(t.contents[0])
                 text = text.strip("\n ")
-                return [Topic(text, text, None, None, None)]
+                return [Topic(text, text, None, None, None, date)]
             else:
                 topics = []
                 for a in aList:
@@ -616,7 +616,7 @@ class Extraction:
                     # article == None if href is redlink like on 27.1.2022
                     article = self.getArticleFromUrlIfArticle(href, topicFlag=True)
 
-                    t = Topic(a, text, href, article, parentTopics)
+                    t = Topic(a, text, href, article, parentTopics, date)
                     topics.append(t)
 
             return topics
@@ -709,6 +709,9 @@ class Extraction:
         for day in range(self.args.monthly_start_day, self.args.monthly_end_day+1):
             self.analytics.dayStart()
 
+            month = month2int[monthStr]
+            date = datetime.date(year, month, day)
+
             idStr = str(year) + "_" + monthStr + "_" + str(day)
             print(idStr + " ", end="", flush=True)
 
@@ -732,7 +735,7 @@ class Extraction:
                 evnum = 0
                 for i in initalTopics:
                     iText, _ = self.getTextAndLinksRecursive(i)
-                    iTopic = Topic(iText, iText, None, None, None)
+                    iTopic = Topic(iText, iText, None, None, None, date)
                     self.outputData.storeTopic(iTopic, graphs)
                     #print("iTopic:", iText)
 
@@ -768,7 +771,7 @@ class Extraction:
                                 self.analytics.numEventsWithType += 1
 
                             e = NewsEvent(x, parentTopics, text, links, wikiArticleLinks, articles, 
-                                    sourceUrl, day, month2int[monthStr], year, sentences, sourceLinks, sourceText, eventTypes, evnum) 
+                                    sourceUrl, date, sentences, sourceLinks, sourceText, eventTypes, evnum) 
 
                             self.analytics.event()
                             self.outputData.storeEvent(e, graphs)
@@ -781,7 +784,7 @@ class Extraction:
                             evnum += 1
                         else:  # x == topic(s)
                             print("T", end="", flush=True)
-                            topics = self.parseTopic(x, parentTopics)
+                            topics = self.parseTopic(x, parentTopics, date)
 
                             for t in topics:
                                 #print("\n", t.text)
