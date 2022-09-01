@@ -314,7 +314,7 @@ class Extraction:
 
         def extractRowForLabelIfExists(labels, label):
             if label in labels:
-                th = ib.tbody.find("th", string=label, attrs={"class": "infobox-label"})
+                th = ib.tbody.find("th", string=label)
                 if th:
                     td = th.find_next_sibling("td")
                     text, links = getTextAndLinksFromDateValue(self, td)
@@ -335,7 +335,7 @@ class Extraction:
                 dtend, l = self.getTextAndLinksRecursive(dtendTag)
                 microformats["dtend"] = dtend
                 self.analytics.numTopicsWithDtend += 1
-
+        
         dateRows = {}
         dateRows |= extractRowForLabelIfExists(labels, "Date")
         dateRows |= extractRowForLabelIfExists(labels, "Date(s)")
@@ -428,7 +428,7 @@ class Extraction:
             for t in tib:
                 self.analytics.topicInfoboxTemplate(t)
 
-            labels = [str(th.string) for th in ib.tbody.find_all("th", attrs={"class": "infobox-label"}) if th.string]
+            labels = [str(th.string) for th in ib.tbody.find_all("th") if th.string]
             self.analytics.topicInfoboxLabels(labels)
 
             rows, dates, times, microformats = self.getDateAndTimeFromTopicInfobox(ib, templates, labels)
