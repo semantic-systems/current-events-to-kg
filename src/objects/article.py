@@ -4,7 +4,7 @@
 class Article():
     def __init__(self, link, locFlag, coords, infobox, ibcontent, articleGraph, templates, 
             infoboxWkts, wikidataWkts, wikidataEntity, wikidata_one_hop_graph, parent_locations_and_relation,
-            classes_with_labels, dates, times, microformats, datePublished, dateModified):
+            classes_with_labels, dates, times, microformats, datePublished, dateModified, name, headline):
         self.link = link
         self.locFlag = locFlag
         self.coords = coords
@@ -21,6 +21,8 @@ class Article():
         self.microformats = microformats
         self.datePublished = datePublished
         self.dateModified = dateModified
+        self.name = name
+        self.headline = headline
         
     
     

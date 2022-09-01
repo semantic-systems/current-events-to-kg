@@ -450,15 +450,19 @@ class Extraction:
     
 
     def getArticleFromUrlIfArticle(self, url, topicFlag=False) -> Article:
+        # return none if url is not an article
         if not self.testIfUrlIsArticle(url):
             return None
-
+        
+        # get page
         page = self.inputData.fetchWikiPage(url)
         p = BeautifulSoup(page, Extraction.bsParser)
 
+        # extract coordinates and infobox
         coord = self.tryGetCoordinatesFromPage(p)
         ib = self.getInfobox(p)
 
+        # find tag with the jsonld graph with page informations
         # there are two of these, but i think they are always equal(?)
         articleGraphTag = p.find("script", attrs={"type": "application/ld+json"})
         if articleGraphTag == None:
@@ -466,55 +470,77 @@ class Extraction:
             # but redirect page etc (not confirmed)
             return None
         
+        # parse graph
         pageGraph = json.loads(articleGraphTag.string)
         # get 'real' url of page, due to redirects etc
         graphUrl = pageGraph["url"]
         # test again if it is eg redict page
         if not self.testIfUrlIsArticle(graphUrl):
             return None
-
-        # (RLQ=window.RLQ||[]).push(function(){mw.config.set(         );});
+        
+        # extract various info
+        datePublished = None
+        if "datePublished" in pageGraph:
+            datePublished = str(pageGraph["datePublished"])
+        dateModified = None
+        if "dateModified" in pageGraph:
+            dateModified = str(pageGraph["dateModified"])
+        name = None
+        if "name" in pageGraph:
+            name = str(pageGraph["name"])
+        headline = None
+        if "headline" in pageGraph:
+            headline = str(pageGraph["headline"])
+        wikidataEntityURI = None
+        if "mainEntity" in pageGraph:
+            wikidataEntityURI = str(pageGraph["mainEntity"])
+        
+        # extract json with page loading stats etc
+        # (RLQ=window.RLQ||[]).push(function(){mw.config.set(    <here>     );});
         statsString = articleGraphTag.find_previous_sibling("script").string[51:-5]
         statsJson = json.loads(statsString)
         templates = re.findall(r"Template:\w+", str(statsJson["wgPageParseReport"]["limitreport"]["timingprofile"]))
 
+        # parse the infobox
         ibcontent, dates, times, microformats = {}, {}, {}, {}
         if ib:
             ibcontent, dates, times, microformats = self.parseInfobox(ib, templates, topicFlag)
         
+        # check if page is a location
         locFlag = self.testIfPageIsLocation(p, ib, ibcontent, coord)
         if locFlag:
             self.analytics.numArticlesWithLocFlag += 1
         
-        datePublished, dateModified = None, None
-        if "datePublished" in pageGraph:
-            datePublished = str(pageGraph["datePublished"])
-        if "dateModified" in pageGraph:
-            dateModified = str(pageGraph["dateModified"])
-        
-        wikidataEntityURI = str(pageGraph["mainEntity"])
-
+        # check for parent locations
         parent_locations_and_relation = self.wikidataService.getHigherlevelLocations(wikidataEntityURI)
 
-        osmrelids, osmobjs = self.wikidataService.getOSMEntitys(wikidataEntityURI)
+        # check for OSM entitys from the wikidata uri of this page
+        osmrelids, osmobjs = [], []
+        if wikidataEntityURI:
+            osmrelids, osmobjs = self.wikidataService.getOSMEntitys(wikidataEntityURI)
 
-        wd_one_hop_g = self.wikidataService.getOneHopSubgraph(wikidataEntityURI)
+        # get one hop graph from wikidata around this pages wd URI
+        wd_one_hop_g = Graph()
+        entity_label_dict = {}
+        if wikidataEntityURI:
+            wd_one_hop_g = self.wikidataService.getOneHopSubgraph(wikidataEntityURI)
 
-        # extract article instance-classes with label
-        is_instance_of_entity = []
-        q = Template("""PREFIX wdt: <http://www.wikidata.org/prop/direct/>
-SELECT DISTINCT ?i WHERE {
-    <$e> wdt:P31 ?i .
-}""").substitute(e=wikidataEntityURI)
+            # extract the "type" of this article through wikidata
+            # extract article instance-classes with label
+            is_instance_of_entity = []
+            q = Template("""PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+    SELECT DISTINCT ?i WHERE {
+        <$e> wdt:P31 ?i .
+    }""").substitute(e=wikidataEntityURI)
 
-        qres = wd_one_hop_g.query(q)
-        for row in qres:
-            is_instance_of_entity.append(row.i)
-        
-        entity_label_dict = self.wikidataService.getEntitysLabels(is_instance_of_entity)
+            qres = wd_one_hop_g.query(q)
+            for row in qres:
+                is_instance_of_entity.append(row.i)
+            
+            entity_label_dict = self.wikidataService.getEntitysLabels(is_instance_of_entity)
 
-        if topicFlag and len(entity_label_dict) > 0:
-            self.analytics.numTopicsWithType += 1
+            if topicFlag and len(entity_label_dict) > 0:
+                self.analytics.numTopicsWithType += 1
         
         # extract wikidata wkts
         articleWithWkt = False
@@ -550,7 +576,7 @@ SELECT DISTINCT ?i WHERE {
         
         return Article(graphUrl, locFlag, coord, str(ib), ibcontent, str(articleGraphTag.string), templates, 
                 ib_wkts, wiki_wkts, wikidataEntityURI, wd_one_hop_g, parent_locations_and_relation, 
-                entity_label_dict, dates, times, microformats, datePublished, dateModified)
+                entity_label_dict, dates, times, microformats, datePublished, dateModified, name, headline)
 
     def getArticles(self, wikiArticleLinks):
         articles = []
