@@ -709,15 +709,15 @@ class Extraction:
         for day in range(self.args.monthly_start_day, self.args.monthly_end_day+1):
             self.analytics.dayStart()
 
-            month = month2int[monthStr]
-            date = datetime.date(year, month, day)
-
             idStr = str(year) + "_" + monthStr + "_" + str(day)
             print(idStr + " ", end="", flush=True)
 
             # select doesnt work, because id starts with number
             daybox = soup.find(attrs={"id": idStr})
             if(daybox):
+                month = month2int[monthStr]
+                date = datetime.date(year, month, day)
+
                 description = daybox.select_one(".description")
 
                 # two versions of headings are used (afaik):
