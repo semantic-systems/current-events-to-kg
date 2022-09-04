@@ -47,7 +47,10 @@ class OutputRdf:
     def __addParentTopics(self, sub, topics, graph):
         for t in topics:
             link = self.__getTopicURI(t)
-            graph.add((sub, n.hasParentTopic, link))
+            bn = BNode()
+            graph.add((sub, n.hasParentTopic, bn))
+            graph.add((bn, n.parentTopic, link))
+            graph.add((bn, n.parentTopicDate, Literal(t.date.isoformat(), datatype=XSD.date)))
     
     def __addCoordinates(self, graph, parentUri, coordinates: list[float]):
 
