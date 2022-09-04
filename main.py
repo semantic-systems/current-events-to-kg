@@ -206,8 +206,6 @@ if __name__ == '__main__':
                 monthGraphs = {g: None for g in monthGraphs.keys()}
                 month_graphs_exists = False
             
-            
-
             # parsing
             if not month_graphs_exists or args.force_parse:                
                 monthGraphs = {g: Graph() for g in monthGraphs.keys()}
@@ -216,6 +214,8 @@ if __name__ == '__main__':
                 if standard_start_end_days:
                     # save monthly analytics
                     a.save(suffix)
+                    print("Analytics saved!")
+
             else:
                 print("Fetching analytics of", str(year) + "_" + months[month-1], end="...", flush=True)
                 try:
@@ -238,8 +238,8 @@ if __name__ == '__main__':
                     daySpanStr = str(args.monthly_start_day) + "_" + str(args.monthly_end_day)
                     filename = daySpanStr + "_" + suffix + "_" + name + ".jsonld"
                 o.saveGraph(monthGraphs[name], filename)
+                print("Month dataset saved as " + filename)
 
-            
             
             if args.merged_dataset:
                 # add month to resulting dataset
@@ -279,7 +279,9 @@ if __name__ == '__main__':
     if args.merged_dataset:
         # save dataset
         for name in dataset.keys():
-            o.saveGraph(dataset[name], "dataset_" + name + ".jsonld")
+            dsname = "dataset_" + name + ".jsonld"
+            o.saveGraph(dataset[name], dsname)
+            print("Combined Dataset saved as " + dsname)
 
 
     
