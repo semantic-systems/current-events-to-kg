@@ -68,6 +68,10 @@ if __name__ == '__main__':
     parser.add_argument('-cca', '--create_combined_analytics', 
         action='store_true', 
         help="Only creates analytics report for monthly analytics between start and end argument.")
+
+    parser.add_argument('-coe', '--crash_on_exceptions', 
+        action='store_true', 
+        help="Program crashes on Exceptions, instead of skipping month.")
     
     # store
     parser.add_argument('-msd', '--monthly_start_day', 
@@ -179,12 +183,14 @@ if __name__ == '__main__':
 
     if args.merged_dataset:
         dataset = {g: Graph() for g in monthGraphs.keys()}
+    
+    unparsed_months = []
 
     while(year*100+month <= endYear*100+endMonth):
         
         suffix = months[month-1] + "_" + str(year)
         
-        monthAnalyticsAvailable = True
+        monthAnalyticsAvailable = False
 
         if not args.create_combined_analytics:
             a.monthStart()
@@ -207,57 +213,76 @@ if __name__ == '__main__':
                 month_graphs_exists = False
             
             # parsing
+            parsing_successful = False
             if not month_graphs_exists or args.force_parse:                
                 monthGraphs = {g: Graph() for g in monthGraphs.keys()}
-                e.parsePage(sourceUrl, page, year, months[month-1], monthGraphs)
+                try:
+                    e.parsePage(sourceUrl, page, year, months[month-1], monthGraphs)
 
-                if standard_start_end_days:
-                    # save monthly analytics
+                    monthAnalyticsAvailable = True
+                    parsing_successful = True
+
+                except BaseException as be:
+                    if args.crash_on_exceptions:
+                        # let program crash
+                        raise be
+                    
+                    print("Exception!", be)
+                    print("Parsing this month will be skipped!")
+
+                # save monthly analytics
+                if monthAnalyticsAvailable and standard_start_end_days:
                     a.save(suffix)
                     print("Analytics saved!")
+                    
 
             else:
                 print("Fetching analytics of", str(year) + "_" + months[month-1], end="...", flush=True)
                 try:
                     a.load(suffix)
                     print("Done")
+                    monthAnalyticsAvailable = True
                 except:
                     print("Went wrong")
-                    monthAnalyticsAvailable = False
             
             # saving cached graph
-            for name in monthGraphs.keys():
-                if standard_start_end_days:
-                    if not month_graphs_exists or args.force_parse:
-                        filename = suffix + "_" + name + ".jsonld"
+            if parsing_successful:
+                for name in monthGraphs.keys():
+                    if standard_start_end_days:
+                        if not month_graphs_exists or args.force_parse:
+                            filename = suffix + "_" + name + ".jsonld"
+                        else:
+                            # skip saving loop
+                            break
                     else:
-                        # skip saving loop
-                        break
-                else:
-                    # month only partially parsed
-                    daySpanStr = str(args.monthly_start_day) + "_" + str(args.monthly_end_day)
-                    filename = daySpanStr + "_" + suffix + "_" + name + ".jsonld"
-                o.saveGraph(monthGraphs[name], filename)
-                print("Month dataset saved as " + filename)
+                        # month only partially parsed
+                        daySpanStr = str(args.monthly_start_day) + "_" + str(args.monthly_end_day)
+                        filename = daySpanStr + "_" + suffix + "_" + name + ".jsonld"
+                    
+                    o.saveGraph(monthGraphs[name], filename)
+                    print("Month dataset saved as " + filename)
 
+                    if args.merged_dataset:
+                        # add month to resulting dataset
+                        print("Merging month in dataset...", end="", flush=True)
+                        for name in dataset.keys():
+                            dataset[name] = dataset[name] + monthGraphs[name]
+                        print("Done")
+
+                    a.monthEnd()
+            else:
+                # remember months with errors
+                unparsed_months.append(suffix)
             
-            if args.merged_dataset:
-                # add month to resulting dataset
-                print("Merging month in dataset...", end="", flush=True)
-                for name in dataset.keys():
-                    dataset[name] = dataset[name] + monthGraphs[name]
-                print("Done")
-            
-            a.monthEnd()
         else:
             # Just load analytics
             print("Fetching analytics of", str(year) + "_" + months[month-1], end="...", flush=True)
             try:
                 a.load(suffix)
                 print("Done")
+                monthAnalyticsAvailable = True
             except:
                 print("Went wrong")
-                monthAnalyticsAvailable = False
 
 
         # combine monthly analytics
@@ -282,6 +307,12 @@ if __name__ == '__main__':
             dsname = "dataset_" + name + ".jsonld"
             o.saveGraph(dataset[name], dsname)
             print("Combined Dataset saved as " + dsname)
+    
+    # print unparsed months
+    if len(unparsed_months) > 0:
+        print("These months were skipped due to Exceptions:")
+        for m in unparsed_months:
+            print(m)
 
 
     
