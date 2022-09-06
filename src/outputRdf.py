@@ -43,14 +43,6 @@ class OutputRdf:
         suffix = str(e.date.day) + "_" + str(e.eventIndex)
         uri = Namespace(prefix)[suffix]
         return uri
-
-    def __addParentTopics(self, sub, topics, graph):
-        for t in topics:
-            link = self.__getTopicURI(t)
-            bn = BNode()
-            graph.add((sub, n.hasParentTopic, bn))
-            graph.add((bn, n.parentTopic, link))
-            graph.add((bn, n.parentTopicDate, Literal(t.date.isoformat(), datatype=XSD.date)))
     
     def __addCoordinates(self, graph, parentUri, coordinates: list[float]):
 
@@ -183,7 +175,9 @@ class OutputRdf:
         base.add((evuri, NIF.sourceUrl, sourceUri)) 
         base.add((sourceUri, RDF.type, FOAF.Document))
         
-        self.__addParentTopics(evuri, event.parentTopics, base)
+        for t in event.parentTopics:
+            parent = self.__getTopicURI(t)
+            base.add((evuri, n.underTopic, parent))
 
         # wikidata type
         for entityId, label in event.eventTypes.items():
@@ -279,7 +273,11 @@ class OutputRdf:
         # connect to parent topics
         if topic.parentTopics:
             for t in topic.parentTopics:
-                self.__addParentTopics(turi, topic.parentTopics, base)
+                parent = self.__getTopicURI(t)
+                bn = BNode()
+                base.add((turi, n.hasParentTopic, bn))
+                base.add((bn, n.parentTopic, parent))
+                base.add((bn, n.parentTopicDate, Literal(t.date.isoformat(), datatype=XSD.date)))
         
     def loadGraph(self, fileName):
         path = self.outputFolder / fileName
