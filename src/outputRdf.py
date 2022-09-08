@@ -99,7 +99,7 @@ class OutputRdf:
             base.add((ruri, RDFS.label, Literal(str(row.label), datatype=XSD.string)))
             base.add((ruri, schema.hasValue, Literal(str(row.value), datatype=XSD.string)))
             for i, l in enumerate(row.valueLinks):
-                luri = self.__addLinkTriples(base, ruri, schema.hasLink, l)
+                luri = self.__addLinkTriples(base, ruri, schema.hasLinkAsValue, l)
                 if row.label == "Location":
                     self.__addOsmElement(osm, luri, schema.hasOsmElementFromText, article.infoboxWkts[i][1])
             # dates
