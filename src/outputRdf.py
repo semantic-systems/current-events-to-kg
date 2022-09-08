@@ -10,8 +10,9 @@ from rdflib import (FOAF, OWL, RDF, RDFS, XSD, BNode, Graph, Literal,
 
 from src.objects.newsEvent import NewsEvent
 from src.objects.topic import Topic
-
-n = Namespace("http://data.coypu.org/")
+# data under https://data.coypu.org/ENTITY-TYPE/DATA-SOURCE/ID
+topics = Namespace("https://data.coypu.org/topic/wikipedia-current-events/")
+schema = Namespace("https://schema.coypu.org/global#")
 NIF = Namespace("http://persistence.uni-leipzig.org/nlp2rdf/ontologies/nif-core#")
 SEM = Namespace("http://semanticweb.cs.vu.nl/2009/11/sem/")
 WGS = Namespace("http://www.w3.org/2003/01/geo/wgs84_pos#")
@@ -35,7 +36,7 @@ class OutputRdf:
         if link != None and re.match("https://en.wikipedia.org/wiki/", link):
             uri = URIRef(link)
         else:
-            uri =  n[str(hashlib.md5(t.text.encode('utf-8')).hexdigest())]
+            uri =  topics[str(hashlib.md5(t.text.encode('utf-8')).hexdigest())]
         return uri
     
     def __getEventURIIndexBased(self, e):
@@ -45,31 +46,32 @@ class OutputRdf:
         return uri
     
     def __addCoordinates(self, graph, parentUri, coordinates: list[float]):
-
         puri = BNode()
-        graph.add((parentUri, n.coordinates, puri))
+        graph.add((parentUri, schema.hasCoordinates, puri))
         graph.add((puri, RDF.type, WGS.Point))
         graph.add((puri, WGS.lat, Literal(str(coordinates[0]), datatype=XSD.float)))
         graph.add((puri, WGS.long, Literal(str(coordinates[1]), datatype=XSD.float)))
     
-    def __addOSMElement(self, graph, target, relation, osmElement):
+    def __addOsmElement(self, graph, target, relation, osmElement):
         osmuri = BNode()
         graph.add((target, relation, osmuri))
-        graph.add((osmuri, RDF.type, n.OSMElement))
+        graph.add((osmuri, RDF.type, schema.OsmElement))
         if osmElement.osmType:
-            graph.add((osmuri, n.osmType, Literal(str(osmElement.osmType), datatype=XSD.string)))
+            graph.add((osmuri, schema.hasOsmType, Literal(str(osmElement.osmType), datatype=XSD.string)))
         if osmElement.osmId:
-            graph.add((osmuri, n.osmId, Literal(str(osmElement.osmId), datatype=XSD.integer)))
+            graph.add((osmuri, schema.hasOsmId, Literal(str(osmElement.osmId), datatype=XSD.integer)))
         if osmElement.wkt:
-            graph.add((osmuri, n.osmWkt, Literal(str(osmElement.wkt), datatype=GEO.wktLiteral)))
+            graph.add((osmuri, schema.hasOsmWkt, Literal(str(osmElement.wkt), datatype=GEO.wktLiteral)))
     
     def __addLinkTriples(self, graph, target, predicate, link) -> BNode:
         luri = BNode()
         graph.add((target, predicate, luri))
-        graph.add((luri, RDF.type, n.Link))
+        graph.add((luri, RDF.type, schema.Link))
         graph.add((luri, NIF.referenceContext, target))
-        graph.add((luri, n.references, URIRef(str(link.href))))
-        graph.add((luri, n.text, Literal(str(link.text), datatype=XSD.string)))
+        hrefuri = URIRef(str(link.href))
+        graph.add((hrefuri, RDF.type, FOAF.Document))
+        graph.add((luri, schema.hasReference, hrefuri))
+        graph.add((luri, schema.hasText, Literal(str(link.text), datatype=XSD.string)))
         graph.add((luri, NIF.beginIndex, Literal(link.startPos, datatype=XSD.nonNegativeInteger)))
         graph.add((luri, NIF.endIndex, Literal(link.endPos, datatype=XSD.nonNegativeInteger)))
         return luri
@@ -80,49 +82,49 @@ class OutputRdf:
         raw = graphs["raw"]
         ohg = graphs["ohg"]
     
-        base.add((target, RDF.type, n.Article))
+        base.add((target, RDF.type, schema.WikipediaArticle))
         if article.locFlag:
-            base.add((target, RDF.type, n.Location))
+            base.add((target, RDF.type, schema.Location))
         if article.infobox:
-            raw.add((target, n.infobox, Literal(str(article.infobox), datatype=XSD.string)))
+            raw.add((target, schema.hasInfobox, Literal(str(article.infobox), datatype=XSD.string)))
         if article.coords:
             self.__addCoordinates(base, target, article.coords)
         if len(article.wikidataWkts) >= 1:
             for wkt in article.wikidataWkts:
-                self.__addOSMElement(osm, target, n.osmElementFromWikidata, wkt)
+                self.__addOsmElement(osm, target, schema.hasOsmElementFromWikidata, wkt)
         for row in article.ibcontent.values():
             ruri = BNode()
-            base.add((target, n.infoboxRow, ruri))
-            base.add((ruri, RDF.type, n.InfoboxRow))
+            base.add((target, schema.hasInfoboxRow, ruri))
+            base.add((ruri, RDF.type, schema.InfoboxRow))
             base.add((ruri, RDFS.label, Literal(str(row.label), datatype=XSD.string)))
-            base.add((ruri, n.value, Literal(str(row.value), datatype=XSD.string)))
+            base.add((ruri, schema.hasValue, Literal(str(row.value), datatype=XSD.string)))
             for i, l in enumerate(row.valueLinks):
-                luri = self.__addLinkTriples(base, ruri, n.valueHasLink, l)
+                luri = self.__addLinkTriples(base, ruri, schema.hasLink, l)
                 if row.label == "Location":
-                    self.__addOSMElement(osm, luri, n.osmElementFromLinkText, article.infoboxWkts[i][1])
+                    self.__addOsmElement(osm, luri, schema.hasOsmElementFromText, article.infoboxWkts[i][1])
             # dates
             if row.label in article.dates:
                 date = article.dates[row.label]
-                base.add((ruri, n.parsedDate, Literal(str(date["date"].isoformat()), datatype=XSD.dateTime)))
+                base.add((ruri, schema.hasParsedDate, Literal(str(date["date"].isoformat()), datatype=XSD.dateTime)))
                 if "until" in date:
-                    base.add((ruri, n.parsedEndDate, Literal(str(date["until"].isoformat()), datatype=XSD.dateTime)))
+                    base.add((ruri, schema.hasParsedEndDate, Literal(str(date["until"].isoformat()), datatype=XSD.dateTime)))
                 elif "ongoing" in date:
-                    base.add((ruri, n.parsedDateOngoing, Literal("true", datatype=XSD.boolean)))
+                    base.add((ruri, schema.hasParsedDateOngoing, Literal("true", datatype=XSD.boolean)))
                 if "tz" in date:
-                    base.add((ruri, n.parsedDateTimezone, Literal(str(date["tz"]), datatype=XSD.string)))
+                    base.add((ruri, schema.hasParsedDateTimezone, Literal(str(date["tz"]), datatype=XSD.string)))
             # times
             if row.label in article.times:
                 time = article.times[row.label]
-                base.add((ruri, n.parsedTime, Literal(str(time["start"]), datatype=XSD.time)))
+                base.add((ruri, schema.hasParsedTime, Literal(str(time["start"]), datatype=XSD.time)))
                 if "end" in time:
-                    base.add((ruri, n.parsedEndTime, Literal(str(time["end"]), datatype=XSD.time)))
+                    base.add((ruri, schema.hasParsedEndTime, Literal(str(time["end"]), datatype=XSD.time)))
                 if "tz" in time:
-                    base.add((ruri, n.parsedTimezone, Literal(str(time["tz"]), datatype=XSD.string)))
+                    base.add((ruri, schema.hasParsedTimezone, Literal(str(time["tz"]), datatype=XSD.string)))
         # microformats
         if "dtstart" in article.microformats:
-            base.add((target, n.microformatsDtstart, Literal(str(article.microformats["dtstart"]), datatype=XSD.string)))
+            base.add((target, schema.hasMicroformatsDtstart, Literal(str(article.microformats["dtstart"]), datatype=XSD.string)))
         if "dtend" in article.microformats:
-            base.add((target, n.microformatsDtend, Literal(str(article.microformats["dtend"]), datatype=XSD.string)))
+            base.add((target, schema.hasMicroformatsDtend, Literal(str(article.microformats["dtend"]), datatype=XSD.string)))
 
         base.add((target, OWL.sameAs, URIRef(article.wikidataEntity)))
         ohg += article.wikidata_one_hop_graph
@@ -133,13 +135,13 @@ class OutputRdf:
         
         # add doc infos
         if article.datePublished:
-            base.add((target, n.datePublished, Literal(str(article.datePublished), datatype=XSD.dateTime)))
+            base.add((target, schema.hasDatePublished, Literal(str(article.datePublished), datatype=XSD.dateTime)))
         if article.dateModified:
-            base.add((target, n.dateModified, Literal(str(article.dateModified), datatype=XSD.dateTime)))
+            base.add((target, schema.hasDateModified, Literal(str(article.dateModified), datatype=XSD.dateTime)))
         if article.name:
-            base.add((target, n.name, Literal(str(article.name), datatype=XSD.string)))
+            base.add((target, schema.hasName, Literal(str(article.name), datatype=XSD.string)))
         if article.headline:
-            base.add((target, n.headline, Literal(str(article.headline), datatype=XSD.string)))
+            base.add((target, schema.hasHeadline, Literal(str(article.headline), datatype=XSD.string)))
 
 
     
@@ -156,14 +158,13 @@ class OutputRdf:
             return
 
         # type
-        base.add((evuri, RDF.type, n.Event))
+        base.add((evuri, RDF.type, schema.Event))
         base.add((evuri, RDF.type, NIF.Context))
         
         # save date
-        base.add((evuri, n.date, Literal(event.date.isoformat(), datatype=XSD.date)))
+        base.add((evuri, schema.hasDate, Literal(event.date.isoformat(), datatype=XSD.date)))
 
-
-        raw.add((evuri, n.raw, Literal(str(event.raw), datatype=XSD.string)))
+        raw.add((evuri, schema.hasRaw, Literal(str(event.raw), datatype=XSD.string)))
 
         # string
         base.add((evuri, NIF.isString, Literal(str(event.text), datatype=XSD.string)))
@@ -175,26 +176,21 @@ class OutputRdf:
         base.add((evuri, NIF.sourceUrl, sourceUri)) 
         base.add((sourceUri, RDF.type, FOAF.Document))
         
+        # connect with topic
         for t in event.parentTopics:
             parent = self.__getTopicURI(t)
-            base.add((evuri, n.underTopic, parent))
+            base.add((evuri, schema.hasParentTopic, parent))
 
         # wikidata type
         for entityId, label in event.eventTypes.items():
             cluri = BNode()
-            base.add((evuri, n.eventType, cluri))
-            base.add((cluri, n.eventTypeLabel, Literal(str(label), datatype=XSD.string)))
-            base.add((cluri, n.eventTypeURI, URIRef(WD[entityId])))
+            base.add((evuri, schema.hasEventType, cluri))
+            base.add((cluri, schema.hasEventTypeLabel, Literal(str(label), datatype=XSD.string)))
+            base.add((cluri, schema.hasEventTypeURI, URIRef(WD[entityId])))
 
         # the news sources
         for l in event.sourceLinks:
-            sluri = BNode()
-            base.add((evuri, n.hasSource, sluri))
-            base.add((sluri, RDF.type, n.Source))
-            hrefuri = URIRef(l.href)
-            base.add((sluri, n.sourceLink, hrefuri))
-            base.add((hrefuri, RDF.type, FOAF.Document))
-            base.add((sluri, n.sourceLinkText, Literal(str(l.text), datatype=XSD.string)))
+            self.__addLinkTriples(base, evuri, schema.hasSource, l)
 
         # sentences
         lastSentenceUri = None
@@ -204,8 +200,8 @@ class OutputRdf:
             suri = URIRef(str(evuri) + "_" + str(i))
             base.add((suri, RDF.type, NIF.Sentence))
             base.add((suri, NIF.referenceContext, evuri))
-            base.add((evuri, n.hasSentence, suri))
-            base.add((suri, n.sentencePosition, Literal(i, datatype=XSD.nonNegativeInteger)))
+            base.add((evuri, schema.hasSentence, suri))
+            base.add((suri, schema.hasSentencePosition, Literal(i, datatype=XSD.nonNegativeInteger)))
             base.add((suri, NIF.anchorOf, Literal(str(sentence.text), datatype=XSD.string)))
             base.add((suri, NIF.beginIndex, Literal(sentence.start, datatype=XSD.nonNegativeInteger)))
             base.add((suri, NIF.endIndex, Literal(sentence.end, datatype=XSD.nonNegativeInteger)))
@@ -221,7 +217,7 @@ class OutputRdf:
                 link = links[j]
 
                 # link
-                self.__addLinkTriples(base, suri, n.hasLink, link)
+                self.__addLinkTriples(base, suri, schema.hasLink, link)
                 
                 # article
                 if article:
@@ -234,10 +230,10 @@ class OutputRdf:
                         
                         if parent in wdLocArticleURIs and article.wikidataEntity != parent:
                             pLocBNode = BNode()
-                            base.add((URIRef(article.wikidataEntity), n.hasParentLocation, pLocBNode))
-                            base.add((pLocBNode, n.parentLocation, URIRef(parent)))
+                            base.add((URIRef(article.wikidataEntity), schema.hasParentLocation, pLocBNode))
+                            base.add((pLocBNode, schema.parentLocation, URIRef(parent)))
                             for prop in article.parent_locations_and_relation[parent]:
-                                base.add((pLocBNode, n.originalProperty, URIRef(prop)))
+                                base.add((pLocBNode, schema.hasUsedPropertyOriginally, URIRef(prop)))
 
                             if parent in wdLocArticleURIs4countingLeafs:
                                 wdLocArticleURIs4countingLeafs.remove(parent)
@@ -257,14 +253,14 @@ class OutputRdf:
                 "http://data.coypu.org/Disastersandaccidents"]:
             return
         
-        base.add((turi, RDF.type, n.Topic))
+        base.add((turi, RDF.type, schema.Topic))
         base.add((turi, RDFS.label, Literal(str(topic.text), datatype=XSD.string)))
         
         # store raw html topic link
-        raw.add((turi, n.raw, Literal(str(topic.raw), datatype=XSD.string)))
+        raw.add((turi, schema.hasRaw, Literal(str(topic.raw), datatype=XSD.string)))
 
         # store date of usage of this topic
-        base.add((turi, n.usageDate, Literal(topic.date.isoformat(), datatype=XSD.date)))
+        base.add((turi, schema.hasUsageDate, Literal(topic.date.isoformat(), datatype=XSD.date)))
         
         # store article behind link
         if topic.article:
@@ -275,9 +271,9 @@ class OutputRdf:
             for t in topic.parentTopics:
                 parent = self.__getTopicURI(t)
                 bn = BNode()
-                base.add((turi, n.hasParentTopic, bn))
-                base.add((bn, n.parentTopic, parent))
-                base.add((bn, n.parentTopicDate, Literal(t.date.isoformat(), datatype=XSD.date)))
+                base.add((turi, schema.hasParentTopic, bn))
+                base.add((bn, schema.parentTopic, parent))
+                base.add((bn, schema.hasParentTopicDate, Literal(t.date.isoformat(), datatype=XSD.date)))
         
     def loadGraph(self, fileName):
         path = self.outputFolder / fileName
