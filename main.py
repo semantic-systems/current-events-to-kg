@@ -18,6 +18,7 @@ from src.nominatimService import NominatimService
 from src.outputJson import OutputJson
 from src.outputRdf import OutputRdf
 from src.wikidataService import WikidataService
+from src.falcon2Service import Falcon2Service
 
 if __name__ == '__main__':
     __progName__ = "current-events-to-kg"
@@ -50,6 +51,10 @@ if __name__ == '__main__':
         help="Query again even if exists in cache")
 
     parser.add_argument('-iwohgc', '--ignore_wikidata_one_hop_graph_cache', 
+        action='store_true', 
+        help="Query again even if exists in cache")
+
+    parser.add_argument('-ifc', '--ignore_falcon2_cache', 
         action='store_true', 
         help="Query again even if exists in cache")
 
@@ -160,7 +165,8 @@ if __name__ == '__main__':
         args.nominatim_endpoint, waitBetweenQueries=args.nominatim_request_spacing)
     w = WikidataService(basedir, args, a, __progName__, __progVersion__, __progGitRepo__, 
         args.wikidata_endpoint, minSecondsBetweenQueries=args.wikidata_request_spacing)
-    e = Extraction(basedir, i, o, a, n, w, args)
+    f = Falcon2Service(basedir, args)
+    e = Extraction(basedir, i, o, a, n, w, f, args)
 
     months = ["January","February","March","April","May","June","July","August","September","October","November","December"]
     

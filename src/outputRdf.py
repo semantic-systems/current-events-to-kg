@@ -10,6 +10,9 @@ from rdflib import (FOAF, OWL, RDF, RDFS, XSD, BNode, Graph, Literal,
 
 from src.objects.newsEvent import NewsEvent
 from src.objects.topic import Topic
+from src.objects.infoboxRow import InfoboxRowLocation
+
+
 # data under https://data.coypu.org/ENTITY-TYPE/DATA-SOURCE/ID
 topics = Namespace("https://data.coypu.org/topic/wikipedia-current-events/")
 schema = Namespace("https://schema.coypu.org/global#")
@@ -120,6 +123,11 @@ class OutputRdf:
                     base.add((ruri, schema.hasParsedEndTime, Literal(str(time["end"]), datatype=XSD.time)))
                 if "tz" in time:
                     base.add((ruri, schema.hasParsedTimezone, Literal(str(time["tz"]), datatype=XSD.string)))
+            # falcon2 entities
+            if isinstance(row, InfoboxRowLocation):
+                for iri in row.falcon2_wikidata_entities:
+                    base.add((ruri, schema.hasValueEntityFromFalcon2, URIRef(iri)))
+
         # microformats
         if "dtstart" in article.microformats:
             base.add((target, schema.hasMicroformatsDtstart, Literal(str(article.microformats["dtstart"]), datatype=XSD.string)))

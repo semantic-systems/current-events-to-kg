@@ -16,7 +16,7 @@ from rdflib import Graph
 from src.analytics import Analytics
 from src.nominatimService import NominatimService
 from src.objects.article import Article
-from src.objects.infoboxRow import InfoboxRow
+from src.objects.infoboxRow import InfoboxRow, InfoboxRowLocation
 from src.objects.link import Link
 from src.objects.newsEvent import NewsEvent
 from src.objects.osmElement import OSMElement
@@ -33,13 +33,15 @@ class Extraction:
     bsParser = "lxml" # "lxml" faster than "html.parser"
 
     def __init__(self, basedir, inputData, outputData, analytics: Analytics, 
-            nominatimService: NominatimService, wikidataService: WikidataService, args):
+            nominatimService: NominatimService, wikidataService: WikidataService,
+            falcon2Service: Falcon2Service, args):
         self.basedir = basedir 
         self.inputData = inputData
         self.outputData = outputData
         self.analytics = analytics
         self.nominatimService = nominatimService
         self.wikidataService = wikidataService
+        self.falcon2Service = falcon2Service
         self.args = args
         
         # debug logger init
@@ -263,10 +265,14 @@ class Extraction:
             locText, locLinks = loc.string, []
         else:
             locText, locLinks = getTextAndLinksFromLocationValue(self, loc)
-        
-        # store row
+
         if locText:
-            rows["Location"] = InfoboxRow(label, locText, locLinks)
+            # get entities about the location value from falcon2 api
+            falcon2_wikidata_entities, falcon2_dbpedia_entities = self.falcon2Service.querySentence(locText)
+
+            # create row
+            rows["Location"] = InfoboxRowLocation(label, locText, locLinks, 
+                                    falcon2_wikidata_entities, falcon2_dbpedia_entities)
             self.analytics.numTopicsWithLocation += 1
         elif topicFlag:
             for t in infoboxTemplates:
