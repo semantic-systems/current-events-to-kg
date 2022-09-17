@@ -1,5 +1,7 @@
 import requests
 from atexit import register
+from os.path import exists
+from json import dump, load
 
 
 
@@ -8,8 +10,8 @@ class Falcon2Service():
         self.basedir = basedir
         self.args = args
 
-        self.wdCachePath = self.basedir / args.cache_dir / "falcon2_wikidata_entities.json"
-        self.wdCache = self.__loadJsonDict(self.wdCachePath)
+        self.cachePath = self.basedir / args.cache_dir / "falcon2_entities_cache.json"
+        self.text2entities = self.__loadJsonDict(self.cachePath)
 
         self.url_long = 'https://labs.tib.eu/falcon/falcon2/api?mode=long&db=1'
         self.headers = {'content-type': 'application/json', 'Accept-Charset': 'UTF-8'}
@@ -19,11 +21,11 @@ class Falcon2Service():
     
 
     def __saveCaches(self):
-        self.__saveJsonDict(self.wdCachePath, self.wdCache, self.args.ignore_falcon2_cache)
+        self.__saveJsonDict(self.cachePath, self.text2entities)
  
 
-    def __loadJsonDict(self, file_path, force):
-        if(exists(file_path) and not force):
+    def __loadJsonDict(self, file_path):
+        if(exists(file_path)):
             with open(file_path, mode='r', encoding="utf-8") as f:
                 return load(f)
         else:
@@ -35,21 +37,29 @@ class Falcon2Service():
             dump(dic, f)
     
 
-    def querySentence(text):
-        text=text.replace('"','')
-        text=text.replace("'","")
+    def querySentence(self, text):
+        entities_wikidata, entities_dbpedia = None, None
+        if text in self.text2entities and not self.args.ignore_falcon2_cache:
+            entities_wikidata, entities_dbpedia = self.text2entities[text]
+        else:
+            text_cleaned=text.replace('"','')
+            text_cleaned=text_cleaned.replace("'","")
 
-        payload = '{"text":"'+text+'"}'
-        for i in range(3):
-            r = requests.post(self.url_long, data=payload.encode('utf-8'), headers=self.headers)
-            if r.status_code == 200:
-                response = r.json()
+            payload = '{"text":"' + text_cleaned + '"}'
+            for i in range(3):
+                r = requests.post(self.url_long, data=payload.encode('utf-8'), headers=self.headers)
+                if r.status_code == 200:
+                    response = r.json()
 
-                # remove brackets from wikidata iris
-                entities_wikidata = [ x[1].replace('<','').replace('>','')
-                            for x in response['entities_wikidata']]
-                entities_dbpedia = [ x[0] for x in response['entities_dbpedia']]
+                    # remove brackets from wikidata iris
+                    entities_wikidata = [ x["URI"] for x in response['entities_wikidata']]
+                    entities_dbpedia = [ x["URI"] for x in response['entities_dbpedia']]
 
-                return entities_wikidata, entities_dbpedia
+                    self.text2entities[text] = [entities_wikidata, entities_dbpedia]
+                    break
+            
+            # raise if query failed every time
+            if not entities_wikidata or not entities_dbpedia:
+                raise Exception("Could not query Falcon2 API")
 
-        raise Exception("Could not query Falcon2 API")
+        return entities_wikidata, entities_dbpedia
