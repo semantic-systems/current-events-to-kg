@@ -6,13 +6,16 @@ from typing import List
 
 
 class Topic():
-    def __init__(self, raw:str, text:str, link:str, article:Article, parentTopics:List["Topic"], date:date):
+    def __init__(self, raw:str, text:str, link:str, article:Article, parentTopics:List["Topic"], 
+                 date: date, index: int, sourceUrl: str):
         self.raw = raw
         self.text = text
         self.link = link
         self.parentTopics = parentTopics
         self.article = article
         self.date = date
+        self.index = index # n-th topic of the day [0-n]
+        self.sourceUrl = sourceUrl
         
     
     def __str__(self):

@@ -24,6 +24,7 @@ from src.objects.sentence import Sentence
 from src.objects.topic import Topic
 from src.wikidataService import WikidataService
 from src.dateTimeParser import DateTimeParser
+from src.falcon2Service import Falcon2Service
 
 from src.etc import month2int
 
@@ -593,10 +594,10 @@ class Extraction:
         
         return articles
 
-    def parseTopic(self, t, parentTopics, date:datetime.date) -> list[Topic]:
+    def parseTopic(self, t, parentTopics, date:datetime.date, num_topics:int, sourceUrl:str) -> list[Topic]:
         if(isinstance(t, NavigableString)):
             # when parent is no link, but initial Topic without Link
-            return [Topic(t, t, None, None, None, date)]
+            return [Topic(t, t, None, None, None, date, num_topics, sourceUrl)]
         else:
             aList = t.find_all("a", recursive=False)
             # add italic topics
@@ -608,7 +609,7 @@ class Extraction:
                 # rare case when non inital topics have no link (14.1.2022 #4)
                 text, _ = self.getTextAndLinksRecursive(t.contents[0])
                 text = text.strip("\n ")
-                return [Topic(text, text, None, None, None, date)]
+                return [Topic(text, text, None, None, None, date, num_topics, sourceUrl)]
             else:
                 topics = []
                 for a in aList:
@@ -621,8 +622,11 @@ class Extraction:
                     
                     # article == None if href is redlink like on 27.1.2022
                     article = self.getArticleFromUrlIfArticle(href, topicFlag=True)
+                    
+                    # index of the topic
+                    tnum = num_topics + len(topics)
 
-                    t = Topic(a, text, href, article, parentTopics, date)
+                    t = Topic(a, text, href, article, parentTopics, date, tnum, sourceUrl)
                     topics.append(t)
 
             return topics
@@ -741,8 +745,9 @@ class Extraction:
                 evnum = 0
                 for i in initalTopics:
                     iText, _ = self.getTextAndLinksRecursive(i)
-                    iTopic = Topic(iText, iText, None, None, None, date)
+                    iTopic = Topic(iText, iText, None, None, None, date, tnum, sourceUrl)
                     self.outputData.storeTopic(iTopic, graphs)
+                    tnum += 1
                     #print("iTopic:", iText)
 
                     eventList = i.find_next_sibling("ul")
@@ -790,7 +795,7 @@ class Extraction:
                             evnum += 1
                         else:  # x == topic(s)
                             print("T", end="", flush=True)
-                            topics = self.parseTopic(x, parentTopics, date)
+                            topics = self.parseTopic(x, parentTopics, date, tnum, sourceUrl)
 
                             for t in topics:
                                 #print("\n", t.text)
@@ -803,7 +808,7 @@ class Extraction:
                                 [topics, st] for st in subtopics[::-1]]
                             s += subtopicsAndParentTopic
 
-                            tnum += 1
+                            tnum += len(topics)
             print("")
             self.analytics.dayEnd()
         return

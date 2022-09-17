@@ -41,12 +41,20 @@ class OutputRdf:
         else:
             uri =  topics[str(hashlib.md5(t.text.encode('utf-8')).hexdigest())]
         return uri
+
+    def __getTopicURIIndexBased(self, t):
+        prefix = t.sourceUrl + "#"
+        suffix = str(t.date.day) + "_" + str(t.index)
+        uri = Namespace(prefix)[suffix]
+        return uri
+
     
     def __getEventURIIndexBased(self, e):
         prefix = e.sourceUrl + "#"
         suffix = str(e.date.day) + "_" + str(e.eventIndex)
         uri = Namespace(prefix)[suffix]
         return uri
+    
     
     def __addCoordinates(self, graph, parentUri, coordinates: list[float]):
         puri = BNode()
@@ -186,7 +194,7 @@ class OutputRdf:
         
         # connect with topic
         for t in event.parentTopics:
-            parent = self.__getTopicURI(t)
+            parent = self.__getTopicURIIndexBased(t)
             base.add((evuri, schema.hasParentTopic, parent))
 
         # wikidata type
@@ -254,7 +262,7 @@ class OutputRdf:
         base = graphs["base"]
         osm = graphs["osm"]
         raw = graphs["raw"]
-        turi = self.__getTopicURI(topic)
+        turi = self.__getTopicURIIndexBased(topic)
         
         # filters for a specific topics for generating an example sample
         if self.args.sample_mode and str(turi) not in ["https://en.wikipedia.org/wiki/2021%E2%80%932022_Boulder_County_fires", 
@@ -272,12 +280,14 @@ class OutputRdf:
         
         # store article behind link
         if topic.article:
-           self.__addArticleTriples(graphs, turi, topic.article)
+            auri = URIRef(topic.article.link)
+            base.add((turi, schema.hasArticle, auri))
+            self.__addArticleTriples(graphs, auri, topic.article)
         
         # connect to parent topics
         if topic.parentTopics:
             for t in topic.parentTopics:
-                parent = self.__getTopicURI(t)
+                parent = self.__getTopicURIIndexBased(t)
                 bn = BNode()
                 base.add((turi, schema.hasParentTopic, bn))
                 base.add((bn, schema.parentTopic, parent))
