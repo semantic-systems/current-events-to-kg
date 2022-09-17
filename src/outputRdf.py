@@ -44,14 +44,14 @@ class OutputRdf:
 
     def __getTopicURIIndexBased(self, t):
         prefix = t.sourceUrl + "#"
-        suffix = str(t.date.day) + "_" + str(t.index)
+        suffix = str(t.date.day) + "_t" + str(t.index)
         uri = Namespace(prefix)[suffix]
         return uri
 
     
     def __getEventURIIndexBased(self, e):
         prefix = e.sourceUrl + "#"
-        suffix = str(e.date.day) + "_" + str(e.eventIndex)
+        suffix = str(e.date.day) + "_e" + str(e.eventIndex)
         uri = Namespace(prefix)[suffix]
         return uri
     
@@ -288,10 +288,7 @@ class OutputRdf:
         if topic.parentTopics:
             for t in topic.parentTopics:
                 parent = self.__getTopicURIIndexBased(t)
-                bn = BNode()
-                base.add((turi, schema.hasParentTopic, bn))
-                base.add((bn, schema.parentTopic, parent))
-                base.add((bn, schema.hasParentTopicDate, Literal(t.date.isoformat(), datatype=XSD.date)))
+                base.add((turi, schema.hasParentTopic, parent))
         
     def loadGraph(self, fileName):
         path = self.outputFolder / fileName

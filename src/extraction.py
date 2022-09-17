@@ -801,6 +801,7 @@ class Extraction:
                                 #print("\n", t.text)
                                 self.analytics.topic()
                                 self.outputData.storeTopic(t, graphs)
+                                tnum += 1
                                 
                             # append subtopics to stack
                             subtopics = ul.find_all("li", recursive=False)
@@ -808,7 +809,6 @@ class Extraction:
                                 [topics, st] for st in subtopics[::-1]]
                             s += subtopicsAndParentTopic
 
-                            tnum += len(topics)
             print("")
             self.analytics.dayEnd()
         return
