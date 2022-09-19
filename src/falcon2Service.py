@@ -1,7 +1,7 @@
 import requests
 from atexit import register
 from os.path import exists
-from json import dump, load
+from json import dump, load, dumps
 
 
 
@@ -42,12 +42,15 @@ class Falcon2Service():
         if text in self.text2entities and not self.args.ignore_falcon2_cache:
             entities_wikidata, entities_dbpedia = self.text2entities[text]
         else:
-            text_cleaned=text.replace('"','')
-            text_cleaned=text_cleaned.replace("'","")
+            # convert into sendable string
+            text_cleaned = text.replace('"','')
+            text_cleaned = text_cleaned.replace("'","")
+            text_cleaned = dumps(text_cleaned)[1:-1] 
 
             payload = '{"text":"' + text_cleaned + '"}'
+            payload = payload.encode('utf-8')
             for i in range(3):
-                r = requests.post(self.url_long, data=payload.encode('utf-8'), headers=self.headers)
+                r = requests.post(self.url_long, data=payload, headers=self.headers)
                 if r.status_code == 200:
                     response = r.json()
 
@@ -57,9 +60,14 @@ class Falcon2Service():
 
                     self.text2entities[text] = [entities_wikidata, entities_dbpedia]
                     break
+                else:
+                    print(f"Falcon2 query #{i+1} failed! ({r.status_code}: {r.reason})")
+                    print(f"text={text}")
+                    print(f"query={text_cleaned}")
+
             
             # raise if query failed every time
-            if not entities_wikidata or not entities_dbpedia:
+            if entities_wikidata == None or entities_dbpedia == None:
                 raise Exception("Could not query Falcon2 API")
 
         return entities_wikidata, entities_dbpedia
