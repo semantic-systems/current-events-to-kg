@@ -16,7 +16,7 @@ from rdflib import Graph
 from src.analytics import Analytics
 from src.nominatimService import NominatimService
 from src.objects.article import Article
-from src.objects.infoboxRow import InfoboxRow, InfoboxRowLocation
+from src.objects.infoboxRow import *
 from src.objects.link import Link
 from src.objects.newsEvent import NewsEvent
 from src.objects.osmElement import OSMElement
@@ -170,7 +170,7 @@ class Extraction:
                 return self.parseCoords(geodms)
         return
 
-    def testIfPageIsLocation(self, p, ib, ibcontent, coord):
+    def testIfPageIsLocation(self, p, ib, coord):
         # test for infobox template css classes
         if ib:
             self.analytics.articleInfoboxClasses(ib.attrs["class"])
@@ -184,8 +184,6 @@ class Extraction:
         if coord:
             return True
 
-        # if "Location" in ibcontent:
-        #     return True
         return False
     
     def getInfobox(self, p) -> Optional[Tag]:
@@ -271,9 +269,16 @@ class Extraction:
             # get entities about the location value from falcon2 api
             falcon2_wikidata_entities, falcon2_dbpedia_entities = self.falcon2Service.querySentence(locText)
 
+            # get wkts from infobox location value link labels
+            ib_wkts = {}
+            for l in locLinks:
+                res = self.nominatimService.query(l.text)
+                osmid, osmtype, ib_wkt = res.id(), res.type(), res.wkt()
+                ib_wkts[l] = OSMElement(res.id(), res.type(), res.wkt())
+
             # create row
-            rows["Location"] = InfoboxRowLocation(label, locText, locLinks, 
-                                    falcon2_wikidata_entities, falcon2_dbpedia_entities)
+            rows[label] = InfoboxRowLocation(label, locText, locLinks, 
+                                    falcon2_wikidata_entities, falcon2_dbpedia_entities, ib_wkts)
             self.analytics.numTopicsWithLocation += 1
         elif topicFlag:
             for t in infoboxTemplates:
@@ -290,9 +295,10 @@ class Extraction:
         return rows
     
     
-    def getDateAndTimeFromTopicInfobox(self, ib, templates, labels) -> \
-            Tuple[Dict[(str,InfoboxRow)], Dict[str, Dict[str, Union[bool,str,datetime.datetime]]], \
-            Dict[str, Tuple[List[str]]], Dict[str, str]]:
+    def getDateAndTimeFromTopicInfobox(self, ib, templates, labels) -> Tuple[
+                Dict[(str,InfoboxRow)],
+                Dict[str, str],
+            ]:
 
         def getTextAndLinksFromDateValue(self, valueTag):
             text, links = "", []
@@ -356,20 +362,26 @@ class Extraction:
         timeRows |= extractRowForLabelIfExists(labels, "Time")
 
         hasTime, hasTimeSpan = False, False
-        times = {}
+        resRows = {}
         for label, ibRow in timeRows.items():
             value = re.sub(r"[–−]", r"-", ibRow.value)
             timeDict = DateTimeParser.parseTimes(value)
             if timeDict:
-                times[label] = timeDict
+                time = timeDict["start"]
                 hasTime = True
+                endtime, timezone = None, None
                 if "end" in timeDict:
+                    endtime = timeDict["end"]
                     hasTimeSpan = True
+                if "tz" in timeDict:
+                    timezone = timeDict["tz"]
+                timeRow = InfoboxRowTime(ibRow.label, ibRow.value, ibRow.valueLinks, time, endtime, timezone)
+                resRows[label] = timeRow
+            
             else:
                 self.timeParseErrorLogger.info("\"" + value + "\"")
                 self.analytics.numTopicsWithTimeParseError += 1
             
-        dates = {}
         for label, ibRow in dateRows.items():
             value = re.sub(r"[–−]", r"-", ibRow.value)
 
@@ -393,18 +405,23 @@ class Extraction:
                 dateDict = DateTimeParser.parseDates(value)
                 
                 if "date" in dateDict:
-                    dates[label] = {}
-                    dates[label]["date"] = dateDict["date"]
+                    date = dateDict["date"]
                     self.analytics.numTopicsWithDate += 1
+                    until, ongoing = None, False
                     if "until" in dateDict:
-                        dates[label]["until"] = dateDict["until"]
+                        until = dateDict["until"]
                         self.analytics.numTopicsWithDateSpan += 1
                     elif "ongoing" in dateDict and dateDict["ongoing"] == True:
-                        dates[label]["ongoing"] = dateDict["ongoing"]
+                        ongoing = True
                         self.analytics.numTopicsWithDateOngoing += 1
 
                     if timeDict and "tz" in timeDict:
-                        dates[label]["tz"] = timeDict["tz"]
+                        timezone = timeDict["tz"]
+                    else:
+                        timezone = None
+                    dateRow = InfoboxRowDate(
+                        ibRow.label, ibRow.value, ibRow.valueLinks, date, until, ongoing, timezone)
+                    resRows[label] = dateRow
                 else:
                     self.dateParseErrorLogger.info("\"" + value + "\"")
                     self.analytics.numTopicsWithDateParseError += 1
@@ -414,23 +431,22 @@ class Extraction:
             if hasTimeSpan:
                 self.analytics.numTopicsWithTimeSpan += 1
 
-        rows = dateRows | timeRows
-        return rows, dates, times, microformats
+        return resRows, microformats
         
         
     
-    def parseInfobox(self, ib, templates, topicFlag=False) -> \
-            Tuple[Dict[str, InfoboxRow], 
-            Dict[str, Dict[str, Union[bool,str,datetime.datetime]]],
-            Dict[str, Tuple[List[str]]],
+    def parseInfobox(self, ib, templates, topicFlag=False) -> Tuple[
+            Dict[str, InfoboxRow],
             Dict[str, str] ]:
         tib = [t for t in templates if re.match("template:infobox", t.lower())]
         infoboxRows = {}
 
+        # extract Locations
         locs = self.getLocationFromInfobox(ib, templates, tib, topicFlag)
         infoboxRows |= locs
 
-        dates, times, microformats = {}, {}, {}
+        # extract Dates and Times
+        microformats = {}
         if topicFlag:
             for t in tib:
                 self.analytics.topicInfoboxTemplate(t)
@@ -438,11 +454,11 @@ class Extraction:
             labels = [str(th.string) for th in ib.tbody.find_all("th") if th.string]
             self.analytics.topicInfoboxLabels(labels)
 
-            rows, dates, times, microformats = self.getDateAndTimeFromTopicInfobox(ib, templates, labels)
+            rows, microformats = self.getDateAndTimeFromTopicInfobox(ib, templates, labels)
             if rows:
                 infoboxRows |= rows
         
-        return infoboxRows, dates, times, microformats
+        return infoboxRows, microformats
 
     def testIfUrlIsArticle(self, url:str) -> bool:
         # negative tests
@@ -509,12 +525,12 @@ class Extraction:
         templates = re.findall(r"Template:\w+", str(statsJson["wgPageParseReport"]["limitreport"]["timingprofile"]))
 
         # parse the infobox
-        ibcontent, dates, times, microformats = {}, {}, {}, {}
+        ibRows, microformats = {}, {}
         if ib:
-            ibcontent, dates, times, microformats = self.parseInfobox(ib, templates, topicFlag)
+            ibRows, microformats = self.parseInfobox(ib, templates, topicFlag)
         
         # check if page is a location
-        locFlag = self.testIfPageIsLocation(p, ib, ibcontent, coord)
+        locFlag = self.testIfPageIsLocation(p, ib, coord)
         if locFlag:
             self.analytics.numArticlesWithLocFlag += 1
         
@@ -567,23 +583,12 @@ class Extraction:
                 # id, type and wkt could be None!
                 wiki_wkts.append(OSMElement(res.id(), res.type(), res.wkt()))
         
-        # get wkts from infobox loctaion value link labels
-        ib_wkts = []
-        if "Location" in ibcontent:
-            loc = ibcontent["Location"]
-            if loc.valueLinks and len(loc.valueLinks) >= 1:
-                articleWithWkt = True
-                for l in loc.valueLinks:
-                    res = self.nominatimService.query(l.text)
-                    osmid, osmtype, ib_wkt = res.id(), res.type(), res.wkt()
-                    ib_wkts.append([l.text, OSMElement(res.id(), res.type(), res.wkt())])
-        
         if articleWithWkt:
             self.analytics.numArticlesWithWkt += 1
         
-        return Article(graphUrl, locFlag, coord, str(ib), ibcontent, str(articleGraphTag.string), templates, 
-                ib_wkts, wiki_wkts, wikidataEntityURI, wd_one_hop_g, parent_locations_and_relation, 
-                entity_label_dict, dates, times, microformats, datePublished, dateModified, name, headline)
+        return Article(graphUrl, locFlag, coord, str(ib), ibRows, str(articleGraphTag.string), templates, 
+                wiki_wkts, wikidataEntityURI, wd_one_hop_g, parent_locations_and_relation, 
+                entity_label_dict, microformats, datePublished, dateModified, name, headline)
 
     def getArticles(self, wikiArticleLinks):
         articles = []

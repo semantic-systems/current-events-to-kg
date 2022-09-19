@@ -10,7 +10,7 @@ from rdflib import (FOAF, OWL, RDF, RDFS, XSD, BNode, Graph, Literal,
 
 from src.objects.newsEvent import NewsEvent
 from src.objects.topic import Topic
-from src.objects.infoboxRow import InfoboxRowLocation
+from src.objects.infoboxRow import *
 
 
 # data under https://data.coypu.org/ENTITY-TYPE/DATA-SOURCE/ID
@@ -65,14 +65,15 @@ class OutputRdf:
     
     def __addOsmElement(self, graph, target, relation, osmElement):
         osmuri = BNode()
-        graph.add((target, relation, osmuri))
-        graph.add((osmuri, RDF.type, schema.OsmElement))
-        if osmElement.osmType:
-            graph.add((osmuri, schema.hasOsmType, Literal(str(osmElement.osmType), datatype=XSD.string)))
-        if osmElement.osmId:
-            graph.add((osmuri, schema.hasOsmId, Literal(str(osmElement.osmId), datatype=XSD.integer)))
-        if osmElement.wkt:
-            graph.add((osmuri, schema.hasOsmWkt, Literal(str(osmElement.wkt), datatype=GEO.wktLiteral)))
+        if osmElement.osmType or osmElement.osmId or osmElement.wkt:
+            graph.add((target, relation, osmuri))
+            graph.add((osmuri, RDF.type, schema.OsmElement))
+            if osmElement.osmType:
+                graph.add((osmuri, schema.hasOsmType, Literal(str(osmElement.osmType), datatype=XSD.string)))
+            if osmElement.osmId:
+                graph.add((osmuri, schema.hasOsmId, Literal(str(osmElement.osmId), datatype=XSD.integer)))
+            if osmElement.wkt:
+                graph.add((osmuri, schema.hasOsmWkt, Literal(str(osmElement.wkt), datatype=GEO.wktLiteral)))
     
     def __addLinkTriples(self, graph, target, predicate, link) -> BNode:
         luri = BNode()
@@ -106,35 +107,42 @@ class OutputRdf:
         for row in article.ibcontent.values():
             ruri = BNode()
             base.add((target, schema.hasInfoboxRow, ruri))
-            base.add((ruri, RDF.type, schema.InfoboxRow))
+
+            # add base values of InfoboxRow
             base.add((ruri, RDFS.label, Literal(str(row.label), datatype=XSD.string)))
             base.add((ruri, schema.hasValue, Literal(str(row.value), datatype=XSD.string)))
             for i, l in enumerate(row.valueLinks):
                 luri = self.__addLinkTriples(base, ruri, schema.hasLinkAsValue, l)
-                if row.label == "Location":
-                    self.__addOsmElement(osm, luri, schema.hasOsmElementFromText, article.infoboxWkts[i][1])
-            # dates
-            if row.label in article.dates:
-                date = article.dates[row.label]
-                base.add((ruri, schema.hasParsedDate, Literal(str(date["date"].isoformat()), datatype=XSD.dateTime)))
-                if "until" in date:
-                    base.add((ruri, schema.hasParsedEndDate, Literal(str(date["until"].isoformat()), datatype=XSD.dateTime)))
-                elif "ongoing" in date:
-                    base.add((ruri, schema.hasParsedDateOngoing, Literal("true", datatype=XSD.boolean)))
-                if "tz" in date:
-                    base.add((ruri, schema.hasParsedDateTimezone, Literal(str(date["tz"]), datatype=XSD.string)))
-            # times
-            if row.label in article.times:
-                time = article.times[row.label]
-                base.add((ruri, schema.hasParsedTime, Literal(str(time["start"]), datatype=XSD.time)))
-                if "end" in time:
-                    base.add((ruri, schema.hasParsedEndTime, Literal(str(time["end"]), datatype=XSD.time)))
-                if "tz" in time:
-                    base.add((ruri, schema.hasParsedTimezone, Literal(str(time["tz"]), datatype=XSD.string)))
-            # falcon2 entities
+                # add OSM elements to location links
+                if isinstance(row, InfoboxRowLocation):
+                    self.__addOsmElement(osm, luri, schema.hasOsmElementFromText, row.valueLinks_wkts[l])
+            
+            # add specific values
             if isinstance(row, InfoboxRowLocation):
+                base.add((ruri, RDF.type, schema.InfoboxRowLocation))
                 for iri in row.falcon2_wikidata_entities:
                     base.add((ruri, schema.hasValueEntityFromFalcon2, URIRef(iri)))
+            
+            elif isinstance(row, InfoboxRowTime):
+                base.add((ruri, RDF.type, schema.InfoboxRowTime))
+                base.add((ruri, schema.hasTime, Literal(row.time, datatype=XSD.time)))
+                if row.endtime:
+                    base.add((ruri, schema.hasEndTime, Literal(row.endtime, datatype=XSD.time)))
+                if row.timezone:
+                    base.add((ruri, schema.hasTimezone, Literal(row.timezone, datatype=XSD.string)))
+            
+            elif isinstance(row, InfoboxRowDate):
+                base.add((ruri, RDF.type, schema.InfoboxRowDate))
+                base.add((ruri, schema.hasDate, Literal(row.date.isoformat(), datatype=XSD.dateTime)))
+                if row.enddate:
+                    base.add((ruri, schema.hasEndDate, Literal(row.enddate.isoformat(), datatype=XSD.dateTime)))
+                elif row.ongoing:
+                    base.add((ruri, schema.hasDateOngoing, Literal("true", datatype=XSD.boolean)))
+                if row.timezone:
+                    base.add((ruri, schema.hasTimezone, Literal(row.timezone, datatype=XSD.string)))
+            
+            else:
+                base.add((ruri, RDF.type, schema.InfoboxRow))                
 
         # microformats
         if "dtstart" in article.microformats:
