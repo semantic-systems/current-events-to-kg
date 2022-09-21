@@ -227,7 +227,8 @@ if __name__ == '__main__':
 
                     monthAnalyticsAvailable = True
                     parsing_successful = True
-
+                except KeyboardInterrupt as ki:
+                    raise ki
                 except BaseException as be:
                     if args.crash_on_exceptions:
                         # let program crash
