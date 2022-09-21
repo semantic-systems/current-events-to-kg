@@ -6,9 +6,10 @@ from json import dump, load, dumps
 
 
 class Falcon2Service():
-    def __init__(self, basedir, args):
+    def __init__(self, basedir, args, analytics):
         self.basedir = basedir
         self.args = args
+        self.analytics = analytics
 
         self.cachePath = self.basedir / args.cache_dir / "falcon2_entities_cache.json"
         self.text2entities = self.__loadJsonDict(self.cachePath)
@@ -45,6 +46,7 @@ class Falcon2Service():
             # convert into sendable string
             text_cleaned = text.replace('"','')
             text_cleaned = text_cleaned.replace("'","")
+            text_cleaned = text_cleaned.replace("\n"," ")
             text_cleaned = dumps(text_cleaned)[1:-1] 
 
             payload = '{"text":"' + text_cleaned + '"}'
@@ -69,5 +71,7 @@ class Falcon2Service():
             # raise if query failed every time
             if entities_wikidata == None or entities_dbpedia == None:
                 raise Exception("Could not query Falcon2 API")
+        
+        self.analytics.numFalconQuerys += 1
 
         return entities_wikidata, entities_dbpedia

@@ -44,6 +44,7 @@ class Analytics:
         self.numEventsWithMoreThanOneLocation = 0
         self.numEventsWithMoreThanOneLeafLocation = 0
         self.numEventsWithType = 0
+        self.numFalconQuerys = 0
 
         # avg* = [sum, num, "unit"]
         self.avgWaitTimeUntilRequest = [0,0, "sec"]
