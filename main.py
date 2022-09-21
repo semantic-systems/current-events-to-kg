@@ -165,7 +165,7 @@ if __name__ == '__main__':
         args.nominatim_endpoint, waitBetweenQueries=args.nominatim_request_spacing)
     w = WikidataService(basedir, args, a, __progName__, __progVersion__, __progGitRepo__, 
         args.wikidata_endpoint, minSecondsBetweenQueries=args.wikidata_request_spacing)
-    f = Falcon2Service(basedir, args)
+    f = Falcon2Service(basedir, args, a)
     e = Extraction(basedir, i, o, a, n, w, f, args)
 
     months = ["January","February","March","April","May","June","July","August","September","October","November","December"]
