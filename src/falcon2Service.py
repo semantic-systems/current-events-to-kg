@@ -1,9 +1,12 @@
-import requests
+# Copyright: (c) 2022, Lars Michaelis
+# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+
 from atexit import register
+from json import dump, dumps, load
 from os.path import exists
-from json import dump, load, dumps
+from typing import List, Tuple
 
-
+import requests
 
 class Falcon2Service():
     def __init__(self, basedir, args, analytics):
@@ -38,7 +41,7 @@ class Falcon2Service():
             dump(dic, f)
     
 
-    def querySentence(self, text):
+    def querySentence(self, text:str) -> Tuple[List[str], List[str]]:
         entities_wikidata, entities_dbpedia = None, None
         if text in self.text2entities and not self.args.ignore_falcon2_cache:
             entities_wikidata, entities_dbpedia = self.text2entities[text]

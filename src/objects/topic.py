@@ -6,7 +6,7 @@ from typing import List
 
 
 class Topic():
-    def __init__(self, raw:str, text:str, link:str, article:Article, parentTopics:List["Topic"], 
+    def __init__(self, raw: str, text: str, link: str, article: Article, parentTopics: List["Topic"],
                  date: date, index: int, sourceUrl: str):
         self.raw = raw
         self.text = text

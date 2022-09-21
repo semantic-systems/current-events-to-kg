@@ -64,7 +64,7 @@ class Extraction:
         self.timeParseErrorLogger = timeParseErrorLogger
         self.dateParseErrorLogger = dateParseErrorLogger
 
-    def getTextAndLinksRecursive(self, x, startIndex=0) -> Tuple[str, list[Link]]:
+    def __getTextAndLinksRecursive(self, x, startIndex=0) -> Tuple[str, list[Link]]:
         s = ""
         links = []
         curIndex = startIndex
@@ -75,7 +75,7 @@ class Extraction:
         elif(isinstance(x, Tag)):
             childrenText, childrenLinks, childrenTextLength = "",[], 0
             for c in x.children:
-                childText, childLinks = self.getTextAndLinksRecursive(c, curIndex)
+                childText, childLinks = self.__getTextAndLinksRecursive(c, curIndex)
                 childrenText += childText
                 childrenLinks += childLinks
                 childrenTextLength += len(childrenText)
@@ -104,7 +104,7 @@ class Extraction:
         
         return s, links
     
-    def parseEventTagRecursive(self, x, links=None, sourceLinks=None, startIndex=0) -> Tuple[str, list[Link], str, list[Link]]:
+    def __parseEventTagRecursive(self, x, links=None, sourceLinks=None, startIndex=0) -> Tuple[str, list[Link], str, list[Link]]:
         text = ""
         sourceText = ""
         curIndex = startIndex
@@ -117,7 +117,7 @@ class Extraction:
                 text += c
                 curIndex += len(c)
             elif(isinstance(c, Tag)):
-                textRec, linksRec, sourceTextRec, sourceLinksRec = self.parseEventTagRecursive(
+                textRec, linksRec, sourceTextRec, sourceLinksRec = self.__parseEventTagRecursive(
                     c, links, sourceLinks, curIndex)
                 textLength = len(textRec)
 
@@ -153,7 +153,7 @@ class Extraction:
                 raise Exception()
         return text, links, sourceText, sourceLinks
 
-    def getParentTopicElement(self, x):
+    def __getParentTopicElement(self, x):
         p = x.find_parent("li")
 
         if(p == None):
@@ -162,15 +162,15 @@ class Extraction:
         else:
             return p
 
-    def tryGetCoordinatesFromPage(self, p) -> Optional[list[float]]:
+    def __tryGetCoordinatesFromPage(self, p) -> Optional[list[float]]:
         c = p.find(attrs={"id": "coordinates"})
         if c:
             geodms = c.find("span", attrs={"class": "geo-dms"})
             if geodms:
-                return self.parseCoords(geodms)
+                return self.__parseCoords(geodms)
         return
 
-    def testIfPageIsLocation(self, p, ib, coord):
+    def __testIfPageIsLocation(self, p, ib, coord):
         # test for infobox template css classes
         if ib:
             self.analytics.articleInfoboxClasses(ib.attrs["class"])
@@ -186,10 +186,7 @@ class Extraction:
 
         return False
     
-    def getInfobox(self, p) -> Optional[Tag]:
-        return p.find("table", attrs={"class": "infobox"})
-    
-    def dms2dd(self, dms:str) -> float: 
+    def __dms2dd(self, dms:str) -> float: 
         res =  re.split('[°′″]', dms) # 36°13′50.3″N
         if len(res) == 2:
             degrees, direction = res
@@ -205,22 +202,22 @@ class Extraction:
         return (float(degrees) + float(minutes)/60 + float(seconds)/(3600)) * (-1 if direction in ['W', 'S'] else 1)
     
     
-    def parseCoords(self, coordsSpan) -> list[float]:
+    def __parseCoords(self, coordsSpan) -> list[float]:
         lat = coordsSpan.find("span", attrs={"class": "latitude"}, recursive=False)
         lon = coordsSpan.find("span", attrs={"class": "longitude"}, recursive=False)
         if lat and lon:
-            return [self.dms2dd(lat.string), self.dms2dd(lon.string)]
+            return [self.__dms2dd(lat.string), self.__dms2dd(lon.string)]
         return None
     
 
-    def getLocationFromInfobox(self, ib, templates, infoboxTemplates, topicFlag):
+    def __getLocationFromInfobox(self, ib, templates, infoboxTemplates, topicFlag):
 
         def getTextAndLinksFromLocationValue(self, parentTag):
             text, links = "", []
             index = 0
             for c in parentTag.children:
                 if isinstance(c, NavigableString) or (c.name and c.name in ["a", "b", "abbr"]):
-                    t, l = self.getTextAndLinksRecursive(c, startIndex=index)
+                    t, l = self.__getTextAndLinksRecursive(c, startIndex=index)
                     index += len(t)
                     text += t
                     links += l
@@ -288,14 +285,14 @@ class Extraction:
         coords = None
         geodms = td.find("span", attrs={"class": "geo-dms"})
         if geodms:
-            coords = self.parseCoords(geodms)
+            coords = self.__parseCoords(geodms)
             if coords:
                 rows["Coordinates"] = InfoboxRow("Coordinates", coords, [])
 
         return rows
     
     
-    def getDateAndTimeFromTopicInfobox(self, ib, templates, labels) -> Tuple[
+    def __getDateAndTimeFromTopicInfobox(self, ib, templates, labels) -> Tuple[
                 Dict[(str,InfoboxRow)],
                 Dict[str, str],
             ]:
@@ -312,7 +309,7 @@ class Extraction:
                         "style" in c.attrs and "display:none" in c.attrs["style"]):
                         continue
                     elif isinstance(c, NavigableString) or (c.name and c.name in ["a", "b", "abbr", "span"]):
-                        t, l = self.getTextAndLinksRecursive(c, startIndex=index)
+                        t, l = self.__getTextAndLinksRecursive(c, startIndex=index)
                         index += len(t)
                         text += t
                         links += l
@@ -339,13 +336,13 @@ class Extraction:
         if "vevent" in ib.attrs["class"]:
             dtstartTag = ib.find("span", attrs={"class": "dtstart"}, recursive=True)
             if dtstartTag:
-                dtstart, l = self.getTextAndLinksRecursive(dtstartTag)
+                dtstart, l = self.__getTextAndLinksRecursive(dtstartTag)
                 microformats["dtstart"] = dtstart
                 self.analytics.numTopicsWithDtstart += 1
             
             dtendTag = ib.find("span", attrs={"class": "dtend"}, recursive=True)
             if dtendTag:
-                dtend, l = self.getTextAndLinksRecursive(dtendTag)
+                dtend, l = self.__getTextAndLinksRecursive(dtendTag)
                 microformats["dtend"] = dtend
                 self.analytics.numTopicsWithDtend += 1
         
@@ -435,14 +432,14 @@ class Extraction:
         
         
     
-    def parseInfobox(self, ib, templates, topicFlag=False) -> Tuple[
+    def __parseInfobox(self, ib, templates, topicFlag=False) -> Tuple[
             Dict[str, InfoboxRow],
             Dict[str, str] ]:
         tib = [t for t in templates if re.match("template:infobox", t.lower())]
         infoboxRows = {}
 
         # extract Locations
-        locs = self.getLocationFromInfobox(ib, templates, tib, topicFlag)
+        locs = self.__getLocationFromInfobox(ib, templates, tib, topicFlag)
         infoboxRows |= locs
 
         # extract Dates and Times
@@ -454,13 +451,13 @@ class Extraction:
             labels = [str(th.string) for th in ib.tbody.find_all("th") if th.string]
             self.analytics.topicInfoboxLabels(labels)
 
-            rows, microformats = self.getDateAndTimeFromTopicInfobox(ib, templates, labels)
+            rows, microformats = self.__getDateAndTimeFromTopicInfobox(ib, templates, labels)
             if rows:
                 infoboxRows |= rows
         
         return infoboxRows, microformats
 
-    def testIfUrlIsArticle(self, url:str) -> bool:
+    def __testIfUrlIsArticle(self, url:str) -> bool:
         # negative tests
         if re.match("https://en.wikipedia.org/wiki/\w*:", url):
             # 17.1.22 has link to category page in event text
@@ -472,9 +469,9 @@ class Extraction:
         return False
     
 
-    def getArticleFromUrlIfArticle(self, url, topicFlag=False) -> Article:
+    def __getArticleFromUrlIfArticle(self, url, topicFlag=False) -> Article:
         # return none if url is not an article
-        if not self.testIfUrlIsArticle(url):
+        if not self.__testIfUrlIsArticle(url):
             return None
         
         # get page
@@ -482,8 +479,8 @@ class Extraction:
         p = BeautifulSoup(page, Extraction.bsParser)
 
         # extract coordinates and infobox
-        coord = self.tryGetCoordinatesFromPage(p)
-        ib = self.getInfobox(p)
+        coord = self.__tryGetCoordinatesFromPage(p)
+        ib = p.find("table", attrs={"class": "infobox"})
 
         # find tag with the jsonld graph with page informations
         # there are two of these, but i think they are always equal(?)
@@ -498,7 +495,7 @@ class Extraction:
         # get 'real' url of page, due to redirects etc
         graphUrl = pageGraph["url"]
         # test again if it is eg redict page
-        if not self.testIfUrlIsArticle(graphUrl):
+        if not self.__testIfUrlIsArticle(graphUrl):
             return None
         
         # extract various info
@@ -527,10 +524,10 @@ class Extraction:
         # parse the infobox
         ibRows, microformats = {}, {}
         if ib:
-            ibRows, microformats = self.parseInfobox(ib, templates, topicFlag)
+            ibRows, microformats = self.__parseInfobox(ib, templates, topicFlag)
         
         # check if page is a location
-        locFlag = self.testIfPageIsLocation(p, ib, coord)
+        locFlag = self.__testIfPageIsLocation(p, ib, coord)
         if locFlag:
             self.analytics.numArticlesWithLocFlag += 1
         
@@ -590,16 +587,16 @@ class Extraction:
                 wiki_wkts, wikidataEntityURI, wd_one_hop_g, parent_locations_and_relation, 
                 entity_label_dict, microformats, datePublished, dateModified, name, headline)
 
-    def getArticles(self, wikiArticleLinks):
+    def __getArticles(self, wikiArticleLinks):
         articles = []
         for l in wikiArticleLinks:
             url = l.href
-            articles.append(self.getArticleFromUrlIfArticle(url, topicFlag=False))
-            self.analytics.article()
+            articles.append(self.__getArticleFromUrlIfArticle(url, topicFlag=False))
+            self.analytics.numArticles += 1
         
         return articles
 
-    def parseTopic(self, t, parentTopics, date:datetime.date, num_topics:int, sourceUrl:str) -> list[Topic]:
+    def __parseTopic(self, t, parentTopics, date:datetime.date, num_topics:int, sourceUrl:str) -> list[Topic]:
         if(isinstance(t, NavigableString)):
             # when parent is no link, but initial Topic without Link
             return [Topic(t, t, None, None, None, date, num_topics, sourceUrl)]
@@ -612,13 +609,13 @@ class Extraction:
 
             if len(aList) == 0:
                 # rare case when non inital topics have no link (14.1.2022 #4)
-                text, _ = self.getTextAndLinksRecursive(t.contents[0])
+                text, _ = self.__getTextAndLinksRecursive(t.contents[0])
                 text = text.strip("\n ")
                 return [Topic(text, text, None, None, None, date, num_topics, sourceUrl)]
             else:
                 topics = []
                 for a in aList:
-                    text, links = self.getTextAndLinksRecursive(a)
+                    text, links = self.__getTextAndLinksRecursive(a)
                     href = a["href"]
 
                     # add url prefix to urls from wikipedia links
@@ -626,7 +623,7 @@ class Extraction:
                         href = "https://en.wikipedia.org" + href
                     
                     # article == None if href is redlink like on 27.1.2022
-                    article = self.getArticleFromUrlIfArticle(href, topicFlag=True)
+                    article = self.__getArticleFromUrlIfArticle(href, topicFlag=True)
                     
                     # index of the topic
                     tnum = num_topics + len(topics)
@@ -636,7 +633,7 @@ class Extraction:
 
             return topics
     
-    def splitEventTextIntoSentences(self, text, wikiLinks, articles):
+    def __splitEventTextIntoSentences(self, text, wikiLinks, articles) -> List[Sentence]:
 
         # split links occur, which are put into the sentence where they end in
         def getArticlesAndLinksInSpan(wikiLinks, articles, start, end, linkOffset):
@@ -704,7 +701,7 @@ class Extraction:
         return sentences # doest have Source at the end
     
     
-    def searchForEventTypesRecursive(self, topics) -> dict:
+    def __searchForEventTypesRecursive(self, topics) -> Dict[str, str]:
         eventTypes = {}
         
         for t in topics:
@@ -714,7 +711,7 @@ class Extraction:
         if len(eventTypes) == 0:
             for t in topics:
                 if t.parentTopics:
-                    res = self.searchForEventTypesRecursive(t.parentTopics)
+                    res = self.__searchForEventTypesRecursive(t.parentTopics)
                     eventTypes |= res
         
         return eventTypes
@@ -749,7 +746,7 @@ class Extraction:
                 tnum = 0
                 evnum = 0
                 for i in initalTopics:
-                    iText, _ = self.getTextAndLinksRecursive(i)
+                    iText, _ = self.__getTextAndLinksRecursive(i)
                     iTopic = Topic(iText, iText, None, None, None, date, tnum, sourceUrl)
                     self.outputData.storeTopic(iTopic, graphs)
                     tnum += 1
@@ -774,37 +771,37 @@ class Extraction:
                         ul = x.find("ul")
                         if(ul == None):  # x == event
                             print("E", end="", flush=True)
-                            text, links, sourceText, sourceLinks = self.parseEventTagRecursive(x)
+                            text, links, sourceText, sourceLinks = self.__parseEventTagRecursive(x)
                             #print("\n", text)
-                            wikiArticleLinks = [l for l in links if self.testIfUrlIsArticle(l.href)]
+                            wikiArticleLinks = [l for l in links if self.__testIfUrlIsArticle(l.href)]
 
-                            articles = self.getArticles(wikiArticleLinks)
+                            articles = self.__getArticles(wikiArticleLinks)
                             
-                            sentences = self.splitEventTextIntoSentences(text, wikiArticleLinks, articles)
+                            sentences = self.__splitEventTextIntoSentences(text, wikiArticleLinks, articles)
                             
-                            eventTypes = self.searchForEventTypesRecursive(parentTopics)
+                            eventTypes = self.__searchForEventTypesRecursive(parentTopics)
                             if len(eventTypes) > 0:
                                 self.analytics.numEventsWithType += 1
 
-                            e = NewsEvent(x, parentTopics, text, links, wikiArticleLinks, articles, 
-                                    sourceUrl, date, sentences, sourceLinks, sourceText, eventTypes, evnum) 
+                            e = NewsEvent(x, parentTopics, text, sourceUrl, date, sentences, 
+                                    sourceLinks, sourceText, eventTypes, evnum) 
 
-                            self.analytics.event()
+                            self.analytics.numEvents += 1
                             self.outputData.storeEvent(e, graphs)
 
                             if(True in [a.locFlag for a in articles if a != None]):
-                                self.analytics.eventWithLocation()
+                                self.analytics.numEventsWithLocation += 1
                             # else:
                             #     print("\n", e)
 
                             evnum += 1
                         else:  # x == topic(s)
                             print("T", end="", flush=True)
-                            topics = self.parseTopic(x, parentTopics, date, tnum, sourceUrl)
+                            topics = self.__parseTopic(x, parentTopics, date, tnum, sourceUrl)
 
                             for t in topics:
                                 #print("\n", t.text)
-                                self.analytics.topic()
+                                self.analytics.numTopics += 1
                                 self.outputData.storeTopic(t, graphs)
                                 tnum += 1
                                 

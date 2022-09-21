@@ -174,7 +174,12 @@ class OutputRdf:
         osm = graphs["osm"]
         raw = graphs["raw"]
         evuri = self.__getEventURIIndexBased(event)
-        wdLocArticleURIs = [a.wikidataEntity for a in event.articles if a != None and a.locFlag == True]
+
+        all_articles = []
+        for s in event.sentences:
+            all_articles.extend(s.articles)
+        
+        wdLocArticleURIs = [a.wikidataEntity for a in all_articles if a != None and a.locFlag == True]
         wdLocArticleURIs4countingLeafs = set(wdLocArticleURIs)
         
         # filters for a specific event for generating an example sample

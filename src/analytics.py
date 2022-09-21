@@ -64,25 +64,6 @@ class Analytics:
 
         self.development_analytics_vars = ["dictTopicInfoboxLabels", "dictTopicInfoboxTemplates", 
                 "dictTopicInfoboxTemplatesWithoutLocationFound", "dictArticleInfoboxClasses"]
-        
-
-    def download(self):
-        self.numDownloads += 1
-
-    def article(self):
-        self.numArticles += 1
-
-    def topic(self):
-        self.numTopics += 1
-
-    def event(self):
-        self.numEvents += 1
-
-    def eventWithLocation(self):
-        self.numEventsWithLocation += 1
-
-    def open(self):
-        self.numOpenings += 1
 
     def topicInfoboxLabels(self, labels):
         if self.args.development_analytics:

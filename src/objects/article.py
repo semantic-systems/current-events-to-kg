@@ -1,10 +1,19 @@
 # Copyright: (c) 2022, Lars Michaelis
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
+from src.objects.infoboxRow import InfoboxRow
+from src.objects.osmElement import OSMElement
+from rdflib import Graph
+from typing import Dict, List
+
 class Article():
-    def __init__(self, link, locFlag, coords, infobox, ibcontent, articleGraph, templates, 
-            wikidataWkts, wikidataEntity, wikidata_one_hop_graph, parent_locations_and_relation,
-            classes_with_labels, microformats, datePublished, dateModified, name, headline):
+    def __init__(self, link: str, locFlag: bool, coords: List[float], 
+            infobox: str, ibcontent: List[InfoboxRow], articleGraph: str, 
+            templates: List[str], wikidataWkts: List[OSMElement], 
+            wikidataEntity: str, wikidata_one_hop_graph: Graph, 
+            parent_locations_and_relation: Dict[str, List[str]], 
+            classes_with_labels: Dict[str, str], microformats: Dict[str, str], 
+            datePublished: str, dateModified: str, name: str, headline: str):
         self.link = link
         self.locFlag = locFlag
         self.coords = coords
@@ -20,6 +29,3 @@ class Article():
         self.dateModified = dateModified
         self.name = name
         self.headline = headline
-        
-    
-    

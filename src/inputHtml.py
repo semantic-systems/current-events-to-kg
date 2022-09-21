@@ -12,7 +12,7 @@ from src.sleeper import Sleeper
 
 class InputHtml(Sleeper):
 
-    def __init__(self, basedir, args, analytics:Analytics, reqCooldown=0.1):
+    def __init__(self, basedir, args, analytics:Analytics, reqCooldown:float=0.1):
         super().__init__()
         self.args = args
         self.basedir = basedir
@@ -28,7 +28,7 @@ class InputHtml(Sleeper):
 
     def __fetchPage(self, filePath, url):
         if(os.path.exists(filePath) and not self.args.ignore_http_cache):  
-            self.analytics.open()
+            self.analytics.numOpenings += 1
             with open(filePath, mode='r', encoding="utf-8") as f:
                 res = f.read()
             return res
