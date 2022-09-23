@@ -239,8 +239,6 @@ SELECT DISTINCT ?osmrelid ?osmobj WHERE {
                     if t == 2:
                         raise e
         
-
-    
     
     def __loadOSMCache(self):
         if(exists(self.osmCacheFilePath) and not self.args.ignore_wikidata_osm_entity_cache): 
@@ -289,9 +287,12 @@ SELECT DISTINCT ?osmrelid ?osmobj WHERE {
         filePath = self.__getOneHopSubgraphCacheFileName(entityURI)
         
         g = Graph()
-        with open(filePath, mode='r', encoding="utf-8") as f:
-            g.parse(file=f)
-        
+        try:
+            with open(filePath, mode='r', encoding="utf-8") as f:
+                g.parse(file=f)
+        except Exception as e:
+            print(f"Could not load {filePath} ({e})...")
+                
         return g
 
     

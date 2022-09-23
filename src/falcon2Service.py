@@ -54,8 +54,15 @@ class Falcon2Service():
 
             payload = '{"text":"' + text_cleaned + '"}'
             payload = payload.encode('utf-8')
-            for i in range(3):
-                r = requests.post(self.url_long, data=payload, headers=self.headers)
+            for i in range(2):
+                self.analytics.numFalconQuerys += 1
+                try:
+                    r = requests.post(self.url_long, data=payload, headers=self.headers)
+                except Exception as e:
+                    print("Falcon2 request failed!")
+                    print(e)
+                    continue
+                    
                 if r.status_code == 200:
                     response = r.json()
 
@@ -69,12 +76,15 @@ class Falcon2Service():
                     print(f"Falcon2 query #{i+1} failed! ({r.status_code}: {r.reason})")
                     print(f"text={text}")
                     print(f"query={text_cleaned}")
-
+                    if r.status_code == 500:
+                        # INTERNAL SERVER ERROR -> bad input
+                        print(f"skipping query...")
+                        return [], []
             
             # raise if query failed every time
             if entities_wikidata == None or entities_dbpedia == None:
                 raise Exception("Could not query Falcon2 API")
-        
-        self.analytics.numFalconQuerys += 1
+            else:
+                self.analytics.numFalconSuccessfulQuerys += 1
 
         return entities_wikidata, entities_dbpedia
