@@ -20,6 +20,13 @@ from src.outputRdf import OutputRdf
 from src.wikidataService import WikidataService
 from src.falcon2Service import Falcon2Service
 
+def print_unparsed_months(unparsed_months):
+    # print unparsed months
+    if len(unparsed_months) > 0:
+        print("These months were skipped due to Exceptions:")
+        for m in unparsed_months:
+            print(m)
+
 if __name__ == '__main__':
     __progName__ = "current-events-to-kg"
     __progVersion__ = "1.0"
@@ -228,6 +235,7 @@ if __name__ == '__main__':
                     monthAnalyticsAvailable = True
                     parsing_successful = True
                 except KeyboardInterrupt as ki:
+                    print_unparsed_months(unparsed_months)
                     raise ki
                 except BaseException as be:
                     if args.crash_on_exceptions:
@@ -315,11 +323,8 @@ if __name__ == '__main__':
             o.saveGraph(dataset[name], dsname)
             print("Combined Dataset saved as " + dsname)
     
-    # print unparsed months
-    if len(unparsed_months) > 0:
-        print("These months were skipped due to Exceptions:")
-        for m in unparsed_months:
-            print(m)
+    print_unparsed_months(unparsed_months)
+    
 
 
     
