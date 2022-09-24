@@ -1,8 +1,8 @@
 # Copyright: (c) 2022, Lars Michaelis
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
-from src.objects.infoboxRow import InfoboxRow
-from src.objects.osmElement import OSMElement
+from currenteventstokg.objects.infoboxRow import InfoboxRow
+from currenteventstokg.objects.osmElement import OSMElement
 from rdflib import Graph
 from typing import Dict, List
 

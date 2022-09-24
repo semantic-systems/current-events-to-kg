@@ -1,7 +1,7 @@
 # Copyright: (c) 2022, Lars Michaelis
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 from datetime import date
-from src.objects.article import Article
+from currenteventstokg.objects.article import Article
 from typing import List
 
 

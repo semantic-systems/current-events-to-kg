@@ -8,9 +8,9 @@ import re
 from rdflib import (FOAF, OWL, RDF, RDFS, XSD, BNode, Graph, Literal,
                     Namespace, URIRef)
 
-from src.objects.newsEvent import NewsEvent
-from src.objects.topic import Topic
-from src.objects.infoboxRow import *
+from .objects.newsEvent import NewsEvent
+from .objects.topic import Topic
+from .objects.infoboxRow import *
 
 
 # data under https://data.coypu.org/ENTITY-TYPE/DATA-SOURCE/ID

@@ -3,8 +3,8 @@
 
 import datetime
 from typing import Optional, List, Dict
-from src.objects.link import Link
-from src.objects.osmElement import OSMElement
+from currenteventstokg.objects.link import Link
+from currenteventstokg.objects.osmElement import OSMElement
 
 class InfoboxRow():
     def __init__(self, label:str, value:str, valueLinks:List[Link]):

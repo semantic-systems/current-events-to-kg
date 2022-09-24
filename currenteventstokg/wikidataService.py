@@ -13,7 +13,7 @@ from urllib.error import HTTPError, URLError
 from rdflib import BNode, Graph, Literal, URIRef
 from SPARQLWrapper import JSON, JSONLD, TURTLE, XML, SPARQLWrapper, __version__
 
-from src.sleeper import Sleeper
+from .sleeper import Sleeper
 
 
 class WikidataService(Sleeper):

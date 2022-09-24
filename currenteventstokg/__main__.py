@@ -11,14 +11,14 @@ from pprint import pprint
 
 from rdflib import Graph
 
-from src.analytics import Analytics
-from src.extraction import Extraction
-from src.inputHtml import InputHtml
-from src.nominatimService import NominatimService
-from src.outputJson import OutputJson
-from src.outputRdf import OutputRdf
-from src.wikidataService import WikidataService
-from src.falcon2Service import Falcon2Service
+from .analytics import Analytics
+from .extraction import Extraction
+from .inputHtml import InputHtml
+from .nominatimService import NominatimService
+from .outputJson import OutputJson
+from .outputRdf import OutputRdf
+from .wikidataService import WikidataService
+from .falcon2Service import Falcon2Service
 
 def print_unparsed_months(unparsed_months):
     # print unparsed months

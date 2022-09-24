@@ -6,8 +6,8 @@ from pprint import pprint
 
 from rdflib import Graph
 
-from src.objects.newsEvent import NewsEvent
-from src.objects.topic import Topic
+from .objects.newsEvent import NewsEvent
+from .objects.topic import Topic
 
 
 # Replacement for OutputRdf for testing purposes

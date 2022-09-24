@@ -1,9 +1,9 @@
 # Copyright: (c) 2022, Lars Michaelis
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 import datetime
-from src.objects.topic import Topic
-from src.objects.link import Link
-from src.objects.sentence import Sentence
+from currenteventstokg.objects.topic import Topic
+from currenteventstokg.objects.link import Link
+from currenteventstokg.objects.sentence import Sentence
 
 from typing import Dict, List
 

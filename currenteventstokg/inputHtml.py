@@ -6,8 +6,8 @@ import re
 
 import requests
 
-from src.analytics import Analytics
-from src.sleeper import Sleeper
+from .analytics import Analytics
+from .sleeper import Sleeper
 
 
 class InputHtml(Sleeper):

@@ -8,6 +8,7 @@ from typing import List, Tuple
 
 import requests
 
+
 class Falcon2Service():
     def __init__(self, basedir, args, analytics):
         self.basedir = basedir

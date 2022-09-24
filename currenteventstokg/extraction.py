@@ -2,31 +2,30 @@
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 import copy
-import json
-import re
 import datetime
-from string import Template
-from typing import List, Dict, Optional, Tuple, Union
+import json
 import logging
+import re
 from os import makedirs
+from string import Template
+from typing import Dict, List, Optional, Tuple, Union
 
 from bs4 import BeautifulSoup, NavigableString, Tag
 from rdflib import Graph
 
-from src.analytics import Analytics
-from src.nominatimService import NominatimService
-from src.objects.article import Article
-from src.objects.infoboxRow import *
-from src.objects.link import Link
-from src.objects.newsEvent import NewsEvent
-from src.objects.osmElement import OSMElement
-from src.objects.sentence import Sentence
-from src.objects.topic import Topic
-from src.wikidataService import WikidataService
-from src.dateTimeParser import DateTimeParser
-from src.falcon2Service import Falcon2Service
-
-from src.etc import month2int
+from .analytics import Analytics
+from .dateTimeParser import DateTimeParser
+from .etc import month2int
+from .falcon2Service import Falcon2Service
+from .nominatimService import NominatimService
+from .objects.article import Article
+from .objects.infoboxRow import *
+from .objects.link import Link
+from .objects.newsEvent import NewsEvent
+from .objects.osmElement import OSMElement
+from .objects.sentence import Sentence
+from .objects.topic import Topic
+from .wikidataService import WikidataService
 
 
 class Extraction:
