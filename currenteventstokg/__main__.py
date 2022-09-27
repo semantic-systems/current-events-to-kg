@@ -166,7 +166,7 @@ if __name__ == '__main__':
     combined = Analytics(basedir, args, str(Path(args.analytics_dir) / "combined_analytics"))
     
     a = Analytics(basedir, args, args.analytics_dir)
-    i = InputHtml(basedir, args, a)
+    i = InputHtml(a, basedir / args.cache_dir, args.ignore_http_cache)
     o = OutputRdf(basedir, args, a, args.dataset_dir)
     n = NominatimService(basedir, args, a, __progName__, __progVersion__, __progGitRepo__, 
         args.nominatim_endpoint, waitBetweenQueries=args.nominatim_request_spacing)

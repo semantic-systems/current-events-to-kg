@@ -2,7 +2,9 @@
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 import os.path
+from pathlib import Path
 import re
+from typing import Optional
 
 import requests
 
@@ -12,23 +14,23 @@ from .sleeper import Sleeper
 
 class InputHtml(Sleeper):
 
-    def __init__(self, basedir, args, analytics:Analytics, reqCooldown:float=0.1):
+    def __init__(self, analytics:Optional[Analytics], cache_dir:Path, ignore_http_cache:bool, reqCooldown:float=0.1):
         super().__init__()
-        self.args = args
-        self.basedir = basedir
+        self.ignore_http_cache = ignore_http_cache
         self.cooldown = reqCooldown # in s
         self.analytics = analytics
 
-        self.cacheWikiDir = self.basedir / args.cache_dir / "wiki/"
+        self.cacheWikiDir = cache_dir / "wiki/"
         os.makedirs(self.cacheWikiDir, exist_ok=True)
 
-        self.cacheCurrentEventsDir = self.basedir / args.cache_dir / "currentEvents/"
+        self.cacheCurrentEventsDir = cache_dir / "currentEvents/"
         os.makedirs(self.cacheCurrentEventsDir, exist_ok=True)
     
 
     def __fetchPage(self, filePath, url):
-        if(os.path.exists(filePath) and not self.args.ignore_http_cache):  
-            self.analytics.numOpenings += 1
+        if(os.path.exists(filePath) and not self.ignore_http_cache):  
+            if self.analytics:
+                self.analytics.numOpenings += 1
             with open(filePath, mode='r', encoding="utf-8") as f:
                 res = f.read()
             return res
@@ -47,13 +49,13 @@ class InputHtml(Sleeper):
             try:
                 diff, waited = self.sleepUntilNewRequestLegal(self.cooldown)
 
-                #exclude first diff with >8000000
-                if diff >= 0:
-                    self.analytics.timeBetweenRequest(diff)
-                    self.analytics.waitTimeUntilRequest(waited)
+                if self.analytics:
+                    #exclude first diff with >8000000
+                    if diff >= 0:
+                        self.analytics.timeBetweenRequest(diff)
+                        self.analytics.waitTimeUntilRequest(waited)
+                    self.analytics.numDownloads += 1
 
-                
-                self.analytics.numDownloads += 1
                 return requests.get(url)
             except URLError as e:
                 if e.reason.errno != 110:
