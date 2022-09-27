@@ -4,28 +4,29 @@ A parser for the [Wikipedia's Current events Portal](https://en.wikipedia.org/wi
 Apart from [Wikipedia's Current events Portal](https://en.wikipedia.org/wiki/Portal:Current_events) these services are used to enrich the dataset with additional data:
 - [OpenStreetMaps Nominatim](https://nominatim.openstreetmap.org)
 - [Wikidata](https://www.wikidata.org)
+- [Falcon 2.0](https://labs.tib.eu/falcon/falcon2/)
 
 
 ## Analytics
 While the dataset is generated, some analytics about the extracted data are tracked.
-If no `-msd` or `-med` are used, they are saved for every month under `./analytics/`.
+If no `-msd` or `-med` are used, they are saved for every month under `./currenteventstokg/analytics/`.
 
 To view the analytics for a specific month span X to Y, use `-s X -e Y -cca `.
 
 ## Usage Examples
 All arguments are listed via:
 ```
-python -m main -h
+python -m currenteventstokg -h
 ```
 
 Generating a dataset from February 2021 to March 2022:
 ```
-python -m main -s 2/2021 -e 3/2022
+python -m currenteventstokg -s 2/2021 -e 3/2022
 ```
 
 Generating a dataset for the 2nd of March 2021:
 ```
-python -m main -s 3/2021 -e 3/2021 -msd 2 -med 2
+python -m currenteventstokg -s 3/2021 -e 3/2021 -msd 2 -med 2
 ```
 
 ## Use a docker container to run it
@@ -61,7 +62,7 @@ Because the URIs match in all graph types for each entity, you can just import t
 ## Schema
 The generated knowledge graph has the following schema:
 
-![Datset graph schema](Schema.drawio.png)
+![Datset graph schema](./docs/Schema.drawio.png)
 
 ## License
 GNU General Public License v3.0 or later
