@@ -1,8 +1,11 @@
 .gitignore
-cache*/
-dataset*/
-analytics*/
-logs*/
+currenteventstokg/analytics/
+currenteventstokg/cache*/
+currenteventstokg/dataset*/
+currenteventstokg/diagrams/
+currenteventstokg/logs*/
+currenteventstokg/maps/
+currenteventstokg/resources/
+currenteventstokg/visualization/
 .vscode/
 *__pycache__/
-Schema.drawio*
