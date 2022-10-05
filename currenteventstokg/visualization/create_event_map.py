@@ -1,12 +1,13 @@
+# Copyright: (c) 2022, Lars Michaelis
+# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+
 import json
 import re
-from abc import ABC, abstractmethod
 from glob import glob
 from os import makedirs
 from os.path import abspath, exists, split
 from pathlib import Path
 from pprint import pprint
-from random import randrange
 from string import Template
 from time import time
 from typing import Dict, List, Tuple, Union
