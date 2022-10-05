@@ -1,89 +1,21 @@
-from os import makedirs
+# Copyright: (c) 2022, Lars Michaelis
+# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+import datetime
+import json
 from os.path import abspath, exists, split
 from pathlib import Path
-from typing import Dict, List, Tuple, Union, Optional
-import json
-import matplotlib.pyplot as plt
-from currenteventstokg.etc import months, month2int
-from time import time
-from string import Template
-from SPARQLWrapper import JSON, SPARQLWrapper
-from tqdm import tqdm
-import random
-import numpy as np
-import datetime
-from rdflib import Graph
-from glob import glob
 from pprint import pprint
-import rdflib
+from string import Template
+from typing import Dict, List, Optional, Tuple, Union
 
-from create_topic_graph import querySparql
-
-class CurrentEventsGraph():
-    def __init__(self, dataset_dir=Path("../current-events-to-kg/dataset/"), filepaths:Optional[List[Path]]=None):
-        if not filepaths:
-            filepaths = glob(str(dataset_dir / "*_*_base.jsonld"))
-        
-        # load
-        g = Graph()
-        for f in filepaths:
-            print(f"Parsing {f}")
-            g.parse(f)
-        
-        self.g = g
-    
-    def query(self, q) -> rdflib.query.Result:
-        res = self.g.query(q)
-        # if len(res.bindings) > 0:
-        #     keys = [str(k) for k in list(res.bindings[0].keys())]
-        return res
-
-class CurrentEventsVirtuoso():
-    def __init__(self):
-        sparql = SPARQLWrapper("http://localhost:8890/sparql")
-        sparql.setQuery(query)
-        sparql.setReturnFormat(JSON)
-
-        self.sparql = sparql
-        
-    def query(q):
-        start_t = time()
-        res = sparql.query()
-        print(f"{time() - start_t}sec for query")
-
-        print("Converting to JSON...", end="")
-        start_t = time()
-        res = res.convert()
-        print(f"{time() - start_t}sec")
-
-class CurrentEventDiagram():
-    def __init__(self, basedir, cache_sub_dir:str, graph_names:List[str], diagrams_sub_dir:str):
-        self.basedir = basedir
-        self.graph_names = graph_names # need to be sorted with first one first!
-    
-        self.start_month = month2int[self.graph_names[0].split("_")[0]]
-        self.end_month = month2int[self.graph_names[-1].split("_")[0]]
-        self.start_year = int(self.graph_names[0].split("_")[1])
-        self.end_year = int(self.graph_names[-1].split("_")[1])
-
-        filename = ""
-        for i,gn in enumerate(self.graph_names):
-            if i>0:
-                filename += "_"
-            filename += gn
-        self.filename = filename
-
-        self.cache_dir = basedir / "cache" / cache_sub_dir
-        makedirs(self.cache_dir, exist_ok=True)
-
-        self.diagrams_dir = basedir / "./diagrams/" / diagrams_sub_dir
-        makedirs(self.diagrams_dir, exist_ok=True)
-
-
+import matplotlib.pyplot as plt
+import numpy as np
+from tqdm import tqdm
 
 class NumEventsPerMonthAverageDiagram(CurrentEventDiagram):
     def __init__(self, basedir, graph_names:List[str]):
-        super().__init__(basedir, "event_num_per_month_avg", graph_names, "NumEventsPerMonthAverage")
+        super().__init__(basedir, "event_num_per_month_avg", graph_names)
 
     def createDiagram(self, force=True):
         q = """
@@ -136,7 +68,7 @@ class NumEventsPerMonthAverageDiagram(CurrentEventDiagram):
 
 class NumEventsPerMonthDiagram(CurrentEventDiagram):
     def __init__(self, basedir, graph_names:List[str]):
-        super().__init__(basedir, "event_num_per_month", graph_names, "NumEventsPerMonth")
+        super().__init__(basedir, "event_num_per_month", graph_names)
 
     def createDiagram(self, force=True):
 
