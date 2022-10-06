@@ -2,6 +2,7 @@
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 import argparse
+import locale
 from atexit import register
 from json import dump, dumps, load
 from os.path import abspath, exists, split
@@ -12,11 +13,13 @@ from typing import Dict, List, Optional, Tuple, Union
 import matplotlib.pyplot as plt
 import numpy as np
 from currenteventstokg import currenteventstokg_module_dir
-from ..etc import months, graph_name_list
 
+from ..etc import graph_name_list, months
 from .current_events_diagram import CurrentEventBarChart
 from .current_events_graph import CurrentEventsGraphSplit, SPARQLEndpoint
+
 from..sleeper import Sleeper
+
 
 
 class NumCompanyEventsPerMonthDiagram(CurrentEventBarChart, Sleeper):
@@ -84,8 +87,6 @@ class NumCompanyEventsPerMonthDiagram(CurrentEventBarChart, Sleeper):
                     entity_type = str(row["type"])
                     #print(year, month, entity, entity_type)
 
-                    companies.add(entity)
-
                     if last_company_event and event == last_company_event:
                         continue
 
@@ -99,6 +100,8 @@ class NumCompanyEventsPerMonthDiagram(CurrentEventBarChart, Sleeper):
                         data[year][month-1] += 1
 
                         last_company_event = event
+
+                        
             
             print(f"Number of Entites (Company or subclass/similar)  = {len(companies)}")
             
@@ -109,15 +112,42 @@ class NumCompanyEventsPerMonthDiagram(CurrentEventBarChart, Sleeper):
 
         fig = self._create_bar_chart_per_month(
             data, 
-            "Number of Events with Link to Company Per Month",
+            "Number of Events with Link to Company per Month",
             "Month",
             "Number of Events",
         )
         fig.savefig(
-            self.diagrams_dir / f"{self.filename}.png",
-            dpi=400,
+            self.diagrams_dir / f"{self.filename}.svg",
+            #dpi=400,
         )
-        plt.show()
+        #plt.show()
+    
+    def countCompanies(self, force=False):
+        q = """
+        PREFIX coy: <https://schema.coypu.org/global#>
+        PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+        SELECT DISTINCT ?wd ?type WHERE{
+            ?e  a coy:Event;
+                coy:hasSentence/coy:hasLink/coy:hasReference ?a.
+            ?a  a coy:WikipediaArticle;
+                owl:sameAs ?wd.
+            ?wd wdt:P31 ?type.
+        }"""
+
+        print(q)
+        res_list = self.graph.query(q, self.num_processes)
+
+        companies = set()
+        for res in res_list:
+            for row in res:
+                entity = str(row["wd"])
+                entity_type = str(row["type"])
+                #print(year, month, entity, entity_type)
+
+                if self._is_company_subclass(entity_type):
+                    companies.add(entity)
+        
+        print(f"Number of Entites (Company or subclass/similar)  = {len(companies)}")
     
     def _is_company_subclass(self, entity_type:str):
         if entity_type in self.is_class_company_subclass_cache:
@@ -164,4 +194,8 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
 
+    locale.setlocale(locale.LC_ALL,'en_US.UTF-8')
+    plt.rcParams['axes.formatter.use_locale'] = True
+    plt.style.use(currenteventstokg_module_dir / "resources" / "style.mplstyle")
     NumCompanyEventsPerMonthDiagram(graphs, args.wikidata_endpoint, args.query_sleep_time, args.num_processes).createDiagram(args.force)
+    #NumCompanyEventsPerMonthDiagram(graphs, args.wikidata_endpoint, args.query_sleep_time, args.num_processes).countCompanies(args.force)

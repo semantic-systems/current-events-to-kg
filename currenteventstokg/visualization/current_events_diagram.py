@@ -2,9 +2,11 @@
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from os import makedirs
+import locale
 from typing import Dict, List, Optional, Tuple, Union
 
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 import numpy as np
 from currenteventstokg import currenteventstokg_module_dir
 from currenteventstokg.etc import month2int, months
@@ -21,12 +23,7 @@ class CurrentEventDiagram():
         self.start_year = int(self.graph_names[0].split("_")[1])
         self.end_year = int(self.graph_names[-1].split("_")[1])
 
-        filename = ""
-        for i,gn in enumerate(self.graph_names):
-            if i>0:
-                filename += "_"
-            filename += gn
-        self.filename = filename
+        self.filename = f"{self.start_month}_{self.start_year}_{self.end_month}_{self.end_year}"
 
         self.cache_dir = currenteventstokg_module_dir / "cache" / sub_dir_name
         makedirs(self.cache_dir, exist_ok=True)
@@ -54,7 +51,8 @@ class CurrentEventBarChart(CurrentEventDiagram):
             for month in range(12):
                 if not np.isnan(data[year][month]):
                     y.append(data[year][month])
-                    x.append(f"{labels[month+1]}/{int(year)-2000}")
+                    #x.append(f"{labels[month+1]}/{int(year)-2000}")
+                    x.append(np.datetime64(f"{int(year)}-{month+1:02d}"))
                     if month == 0 or len(x) == 0:
                         tick_labels.append(f"{int(year)-2000}")
                     elif month%2 == 0:
@@ -62,8 +60,21 @@ class CurrentEventBarChart(CurrentEventDiagram):
                     else:
                         tick_labels.append(f"")
                     
+        locale.setlocale(locale.LC_TIME,'en_US.UTF-8')
+        
+        locator = mdates.AutoDateLocator() #minticks=3, maxticks=7
+        locator.intervald[mdates.MONTHLY] = [4]
+        ax.xaxis.set_major_locator(locator)
+        formatter = mdates.ConciseDateFormatter(locator)
+        ax.xaxis.set_major_formatter(formatter)
+        
+        minor_locator = mdates.MonthLocator()
+        ax.xaxis.set_minor_locator(minor_locator)
 
-        ax.bar(x, y, tick_label=tick_labels)
+        ax.bar(x, y, 
+            color=None,
+            edgecolor="black",
+        )
         ax.set_title(title)
         ax.set_ylabel(y_label)
         ax.set_xlabel(x_label)
