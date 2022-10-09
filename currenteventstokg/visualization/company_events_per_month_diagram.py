@@ -9,14 +9,16 @@ from os.path import abspath, exists, split
 from pathlib import Path
 from time import sleep, time
 from typing import Dict, List, Optional, Tuple, Union
+from pprint import pprint
 
 import matplotlib.pyplot as plt
 import numpy as np
-from currenteventstokg import currenteventstokg_module_dir
+from wordcloud import WordCloud
 
+from .. import currenteventstokg_module_dir
 from ..etc import graph_name_list, months
 from .current_events_diagram import CurrentEventBarChart
-from .current_events_graph import CurrentEventsGraphSplit, SPARQLEndpoint
+from .current_events_graph import CurrentEventsGraphSplit, SPARQLEndpoint, SPARQLEndpoint
 
 from..sleeper import Sleeper
 
@@ -32,38 +34,39 @@ class NumCompanyEventsPerMonthDiagram(CurrentEventBarChart, Sleeper):
         self.num_processes = num_processes
 
         self.is_class_company_subclass_cache_path = currenteventstokg_module_dir / "cache" / "is_class_company_subclass.json"
-        self.is_class_company_subclass_cache = self.__loadJsonDict(self.is_class_company_subclass_cache_path)
+        self.is_class_company_subclass_cache = self.__loadJson(self.is_class_company_subclass_cache_path)
 
         # save caches after termination
         register(self.__saveCaches)
     
     def __saveCaches(self):
-        self.__saveJsonDict(self.is_class_company_subclass_cache_path, self.is_class_company_subclass_cache)
+        self.__saveJson(self.is_class_company_subclass_cache_path, self.is_class_company_subclass_cache)
 
-    def __loadJsonDict(self, file_path):
-        if(exists(file_path)):
-            with open(file_path, mode='r', encoding="utf-8") as f:
-                return load(f)
-        else:
-            return {}
+    def __loadJson(self, file_path):
+        with open(file_path, mode='r', encoding="utf-8") as f:
+            return load(f)
     
-    def __saveJsonDict(self, file_path, dic):
+    def __saveJson(self, file_path, dic):
         with open(file_path, mode='w', encoding="utf-8") as f:
             dump(dic, f)
 
 
     def createDiagram(self, force=True):
-        cache_path = self.cache_dir / f"{self.filename}.json"
-        if exists(cache_path) and not force:
-            data = self.__loadJsonDict(cache_path)
+        qres_cache_path = self.cache_dir / f"{self.filename}_qres.json"
+        if exists(qres_cache_path) and not force:
+            res_list = self.__loadJson(qres_cache_path)
         else:
             q = """
                 PREFIX coy: <https://schema.coypu.org/global#>
                 PREFIX wdt: <http://www.wikidata.org/prop/direct/>
-                SELECT DISTINCT ?year ?month ?wd ?type ?e WHERE{
+                PREFIX nif: <http://persistence.uni-leipzig.org/nlp2rdf/ontologies/nif-core#>
+                SELECT DISTINCT ?year ?month ?wd ?type ?e ?text ?link_text WHERE{
                     ?e  a coy:Event;
                         coy:hasDate ?date;
-                        coy:hasSentence/coy:hasLink/coy:hasReference ?a.
+                        nif:isString ?text;
+                        coy:hasSentence/coy:hasLink ?l.
+                    ?l  coy:hasReference ?a;
+                        coy:hasText ?link_text.
                     ?a  a coy:WikipediaArticle;
                         owl:sameAs ?wd.
                     ?wd wdt:P31 ?type.
@@ -73,40 +76,43 @@ class NumCompanyEventsPerMonthDiagram(CurrentEventBarChart, Sleeper):
 
             print(q)
             res_list = self.graph.query(q, self.num_processes)
+            self.__saveJson(qres_cache_path, res_list)
 
-            data = {}
-            companies = set()
-            for res in res_list:
-                last_company_event = None
-                
-                for row in res:
-                    month = int(row["month"])
-                    year = int(row["year"])
-                    event = str(row["e"])
-                    entity = str(row["wd"])
-                    entity_type = str(row["type"])
-                    #print(year, month, entity, entity_type)
-
-                    if last_company_event and event == last_company_event:
-                        continue
-
-                    if self._is_company_subclass(entity_type):
-                        if year not in data:
-                            data[year] = [np.nan]*12
-
-                        if np.isnan(data[year][month-1]):
-                            data[year][month-1] = 0
-
-                        data[year][month-1] += 1
-
-                        last_company_event = event
-
-                        
+        data = {}
+        event_texts = set()
+        companies = set()
+        for res in res_list:
+            last_company_event = None
             
-            print(f"Number of Entites (Company or subclass/similar)  = {len(companies)}")
-            
-            # cache
-            self.__saveJsonDict(cache_path, data)
+            for row in res:
+                month = int(row["month"])
+                year = int(row["year"])
+                event = str(row["e"])
+                entity = str(row["wd"])
+                entity_type = str(row["type"])
+                text = str(row["text"])
+                link_text = str(row["link_text"])
+
+                if last_company_event and event == last_company_event:
+                    continue
+
+                if self._is_company_subclass(entity_type):
+                    if year not in data:
+                        data[year] = [np.nan]*12
+
+                    if np.isnan(data[year][month-1]):
+                        data[year][month-1] = 0
+
+                    data[year][month-1] += 1
+
+                    last_company_event = event
+                    event_texts.add(text)
+                    companies.add(link_text)
+
+        event_texts = list(event_texts)
+        
+        print(f"Number of company event texts  = {len(event_texts)}")
+        pprint(companies)
         
         print(data)
 
@@ -120,8 +126,19 @@ class NumCompanyEventsPerMonthDiagram(CurrentEventBarChart, Sleeper):
             self.diagrams_dir / f"{self.filename}.svg",
             #dpi=400,
         )
-        #plt.show()
-    
+        plt.show()
+
+        # wordcloud
+        wordcloud = WordCloud(background_color=None, mode="RGBA", height=1000, width=1000).generate(" ".join(event_texts))
+        plt.imshow(wordcloud, interpolation='bilinear')
+        plt.axis("off")
+        plt.savefig(
+            self.diagrams_dir / f"{self.filename}_wordcloud.png",
+            dpi=400,
+        )
+        plt.show()
+
+
     def countCompanies(self, force=False):
         q = """
         PREFIX coy: <https://schema.coypu.org/global#>
@@ -194,8 +211,23 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
 
+#     g = SPARQLEndpoint(args.wikidata_endpoint)
+#     q = """PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+# PREFIX wd: <http://www.wikidata.org/entity/>
+# PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+# SELECT ?c WHERE {
+# wd:Q185458 wdt:P31 ?cx.  
+# ?cx wdt:P279*/wdt:P460? ?c.
+# }"""
+#     qres = g.query(q)
+#     print(qres)
+#     quit()
+
     locale.setlocale(locale.LC_ALL,'en_US.UTF-8')
     plt.rcParams['axes.formatter.use_locale'] = True
     plt.style.use(currenteventstokg_module_dir / "resources" / "style.mplstyle")
     NumCompanyEventsPerMonthDiagram(graphs, args.wikidata_endpoint, args.query_sleep_time, args.num_processes).createDiagram(args.force)
     #NumCompanyEventsPerMonthDiagram(graphs, args.wikidata_endpoint, args.query_sleep_time, args.num_processes).countCompanies(args.force)
+
+
+    
