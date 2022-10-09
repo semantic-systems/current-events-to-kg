@@ -33,7 +33,7 @@ class CurrentEventsGraph(CurrentEventsGraphABC):
         g = Graph()
         for graph_modules in filepaths:
             for graph_module in graph_modules:
-                print(f"Parsing {f}")
+                print(f"Parsing {graph_module}")
                 g.parse(graph_module)
         
         self.g = g
@@ -96,8 +96,8 @@ class SPARQLEndpoint():
                 res = res.convert()
                 print(f"{time() - start_t}sec")
                 return res
-            except:
-                print("try", t+1, "failed")
+            except Exception as e:
+                print("try", t+1, "failed:", e)
                 continue
         raise
 
