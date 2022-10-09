@@ -15,6 +15,7 @@ from rdflib import Graph
 
 from .analytics import Analytics
 from .dateTimeParser import DateTimeParser
+from .placeTemplatesExtractor import PlacesTemplatesExtractor
 from .etc import month2int
 from .falcon2Service import Falcon2Service
 from .nominatimService import NominatimService
@@ -29,12 +30,9 @@ from .wikidataService import WikidataService
 
 
 class Extraction:
-
-    bsParser = "lxml" # "lxml" faster than "html.parser"
-
     def __init__(self, basedir, inputData, outputData, analytics: Analytics, 
             nominatimService: NominatimService, wikidataService: WikidataService,
-            falcon2Service: Falcon2Service, args):
+            falcon2Service: Falcon2Service, place_templates_extractor:PlacesTemplatesExtractor, args, bs_parser:str):
         self.basedir = basedir 
         self.inputData = inputData
         self.outputData = outputData
@@ -42,7 +40,9 @@ class Extraction:
         self.nominatimService = nominatimService
         self.wikidataService = wikidataService
         self.falcon2Service = falcon2Service
+        self.place_templates = place_templates_extractor.get_templates(args.force_parse)
         self.args = args
+        self.bs_parser = bs_parser
         
         # debug logger init
         logdir = self.basedir / "logs"
@@ -169,18 +169,30 @@ class Extraction:
                 return self.__parseCoords(geodms)
         return
 
-    def __testIfPageIsLocation(self, p, ib, coord):
+    def __testIfPageIsLocation(self, p, ib, coord, templates):
         # test for infobox template css classes
+        if self.__testIfPageIsLocationCss(p, ib, coord):
+            return True
+        
+        # test if templates match place templates
+        if self.__testIfPageIsLocationTemplate(templates):
+            return True
+
+        return False
+
+    def __testIfPageIsLocationCss(self, p, ib, coord):
         if ib:
             self.analytics.articleInfoboxClasses(ib.attrs["class"])
 
             for c in ["ib-settlement", "ib-country", "ib-islands", "ib-pol-div", "ib-school-district", 
                 "ib-uk-place"]:
                 if c in ib.attrs["class"]:
-                    return True        
-                
-        # test if article has coordinated on the top right
-        if coord:
+                    return True
+
+        return False
+    
+    def __testIfPageIsLocationTemplate(self, templates):
+        if templates & self.place_templates:
             return True
 
         return False
@@ -475,7 +487,7 @@ class Extraction:
         
         # get page
         page = self.inputData.fetchWikiPage(url)
-        p = BeautifulSoup(page, Extraction.bsParser)
+        p = BeautifulSoup(page, self.bs_parser)
 
         # extract coordinates and infobox
         coord = self.__tryGetCoordinatesFromPage(p)
@@ -518,7 +530,7 @@ class Extraction:
         # (RLQ=window.RLQ||[]).push(function(){mw.config.set(    <here>     );});
         statsString = articleGraphTag.find_previous_sibling("script").string[51:-5]
         statsJson = json.loads(statsString)
-        templates = re.findall(r"Template:\w+", str(statsJson["wgPageParseReport"]["limitreport"]["timingprofile"]))
+        templates = set(re.findall(r"Template:\w+", str(statsJson["wgPageParseReport"]["limitreport"]["timingprofile"])))
 
         # parse the infobox
         ibRows, microformats = {}, {}
@@ -526,9 +538,19 @@ class Extraction:
             ibRows, microformats = self.__parseInfobox(ib, templates, topicFlag)
         
         # check if page is a location
-        locFlag = self.__testIfPageIsLocation(p, ib, coord)
+        locFlag = self.__testIfPageIsLocation(p, ib, coord, templates)
         if locFlag:
             self.analytics.numArticlesWithLocFlag += 1
+        
+        ## location classifier testing code
+        # locFlagOld = self.__testIfPageIsLocationCss(p, ib, coord)
+        # locFlagNew = self.__testIfPageIsLocationTemplate(templates)
+        # if  locFlag != locFlagOld or \
+        #     locFlag != (locFlag or bool(coord)) or \
+        #     locFlag != (locFlagOld or bool(coord)) :
+        #     with open(self.basedir / "loclog.json", "a") as f:
+        #         json.dump({"name":name, "old":locFlagOld, "new":locFlag, "coord":bool(coord)}, f)
+        #         print("", file=f)
         
         # check for parent locations
         parent_locations_and_relation = self.wikidataService.getHigherlevelLocations(wikidataEntityURI)
@@ -716,7 +738,7 @@ class Extraction:
         return eventTypes
 
     def parsePage(self, sourceUrl, page, year, monthStr, graphs: Dict[str,Graph]):
-        soup = BeautifulSoup(page, Extraction.bsParser)
+        soup = BeautifulSoup(page, self.bs_parser)
         for day in range(self.args.monthly_start_day, self.args.monthly_end_day+1):
             self.analytics.dayStart()
 

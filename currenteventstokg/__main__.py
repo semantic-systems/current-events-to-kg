@@ -19,6 +19,7 @@ from .outputJson import OutputJson
 from .outputRdf import OutputRdf
 from .wikidataService import WikidataService
 from .falcon2Service import Falcon2Service
+from .placeTemplatesExtractor import PlacesTemplatesExtractor
 
 def print_unparsed_months(unparsed_months):
     # print unparsed months
@@ -164,16 +165,19 @@ if __name__ == '__main__':
     
     
     combined = Analytics(basedir, args, str(Path(args.analytics_dir) / "combined_analytics"))
+
+    parser = "lxml" # "lxml" faster than "html.parser"
     
     a = Analytics(basedir, args, args.analytics_dir)
     i = InputHtml(a, basedir / args.cache_dir, args.ignore_http_cache)
+    p = PlacesTemplatesExtractor(basedir, args, i, parser)
     o = OutputRdf(basedir, args, a, args.dataset_dir)
     n = NominatimService(basedir, args, a, __progName__, __progVersion__, __progGitRepo__, 
         args.nominatim_endpoint, waitBetweenQueries=args.nominatim_request_spacing)
     w = WikidataService(basedir, args, a, __progName__, __progVersion__, __progGitRepo__, 
         args.wikidata_endpoint, minSecondsBetweenQueries=args.wikidata_request_spacing)
     f = Falcon2Service(basedir, args, a)
-    e = Extraction(basedir, i, o, a, n, w, f, args)
+    e = Extraction(basedir, i, o, a, n, w, f, p, args, parser)
 
     months = ["January","February","March","April","May","June","July","August","September","October","November","December"]
     

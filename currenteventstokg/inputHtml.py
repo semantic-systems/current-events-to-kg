@@ -25,6 +25,9 @@ class InputHtml(Sleeper):
 
         self.cacheCurrentEventsDir = cache_dir / "currentEvents/"
         os.makedirs(self.cacheCurrentEventsDir, exist_ok=True)
+
+        self.cache_infobox_templates_dir = cache_dir / "infobox_templates/"
+        os.makedirs(self.cache_infobox_templates_dir, exist_ok=True)
     
 
     def __fetchPage(self, filePath, url):
@@ -79,3 +82,9 @@ class InputHtml(Sleeper):
         filePath = self.cacheWikiDir / (urlSuffix + ".html")
         
         return self.__fetchPage(filePath, urlBase + urlSuffix)
+
+    def fetchLocationTemplatesPage(self):
+        url = "https://en.wikipedia.org/wiki/Wikipedia:List_of_infoboxes/Place"
+        filePath = self.cache_infobox_templates_dir / ("places.html")
+        
+        return self.__fetchPage(filePath, url)
