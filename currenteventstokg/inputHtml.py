@@ -38,14 +38,13 @@ class InputHtml(Sleeper):
                 res = f.read()
             return res
         else:
-
             page = self.__requestWithThreeTrysOn110(url)
             
-            # Issue: url and so filepath is from before possible redirect
             with open(filePath, mode='w', encoding="utf-8") as f:
                 f.write(page.text)
             
             return page.text
+    
     
     def __requestWithThreeTrysOn110(self, url):
         for t in range(3):
