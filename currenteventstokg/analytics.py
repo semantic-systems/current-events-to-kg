@@ -145,11 +145,16 @@ class Analytics:
             if self.args.development_analytics or k not in self.development_analytics_vars:
                 if k[0:3] == "num" or k[0:4] == "dict" or k[0:3] == "avg":
                     res[k] = v
-                
-        with open(self.analyticsDir / (suffix+"_analytics.json"), "w", encoding="utf-8") as fp:
+        
+        path = self.analyticsDir / (suffix+"_analytics.json")
+        with open(path, "w", encoding="utf-8") as fp:
             dump(res, fp)
+
+        print("Analytics saved to", path)
+
     
     def load(self, suffix):
+        print("Fetching analytics of", suffix, end="...", flush=True)
         try:
             with open(self.analyticsDir / (suffix+"_analytics.json"), "r", encoding="utf-8") as fp:
                 res = load(fp)
@@ -162,6 +167,7 @@ class Analytics:
                     self.__dict__[k] = res[k]
                 else:
                     self.__dict__[k] = self.__getDefault(k, v)
+        print("Done")
         
 
     def reset(self):

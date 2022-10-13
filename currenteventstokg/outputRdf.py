@@ -2,7 +2,8 @@
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 import hashlib
-import os.path
+from os.path import exists
+from os import makedirs
 import re
 
 from rdflib import (FOAF, OWL, RDF, RDFS, XSD, BNode, Graph, Literal,
@@ -30,7 +31,14 @@ class OutputRdf:
         self.analytics = analytics
 
         self.outputFolder = self.basedir / outputFolder
-        os.makedirs(self.outputFolder, exist_ok=True)
+        makedirs(self.outputFolder, exist_ok=True)
+
+        self.graphs = {
+            "base": Graph(),
+            "raw": Graph(),
+            "ohg": Graph(),
+            "osm": Graph(),
+        }
 
 
     def __getTopicURI(self, t):
@@ -88,11 +96,11 @@ class OutputRdf:
         graph.add((luri, NIF.endIndex, Literal(link.endPos, datatype=XSD.nonNegativeInteger)))
         return luri
     
-    def __addArticleTriples(self, graphs, target, article):
-        base = graphs["base"]
-        osm = graphs["osm"]
-        raw = graphs["raw"]
-        ohg = graphs["ohg"]
+    def __addArticleTriples(self, target, article):
+        base = self.graphs["base"]
+        osm = self.graphs["osm"]
+        raw = self.graphs["raw"]
+        ohg = self.graphs["ohg"]
     
         base.add((target, RDF.type, schema.WikipediaArticle))
         if article.locFlag:
@@ -169,10 +177,10 @@ class OutputRdf:
 
 
     
-    def storeEvent(self, event: NewsEvent, graphs: dict[str,Graph]):
-        base = graphs["base"]
-        osm = graphs["osm"]
-        raw = graphs["raw"]
+    def storeEvent(self, event: NewsEvent):
+        base = self.graphs["base"]
+        osm = self.graphs["osm"]
+        raw = self.graphs["raw"]
         evuri = self.__getEventURIIndexBased(event)
 
         all_articles = []
@@ -251,7 +259,7 @@ class OutputRdf:
                 # article
                 if article:
                     auri = URIRef(link.href)
-                    self.__addArticleTriples(graphs, auri, article)
+                    self.__addArticleTriples(auri, article)
 
                     # link wikidata entities with parent locations (eg NY with USA)
                     for parent in article.parent_locations_and_relation:
@@ -271,10 +279,10 @@ class OutputRdf:
             self.analytics.numEventsWithMoreThanOneLeafLocation += 1
         
     
-    def storeTopic(self, topic: Topic, graphs: dict[str,Graph]):
-        base = graphs["base"]
-        osm = graphs["osm"]
-        raw = graphs["raw"]
+    def storeTopic(self, topic: Topic):
+        base = self.graphs["base"]
+        osm = self.graphs["osm"]
+        raw = self.graphs["raw"]
         turi = self.__getTopicURIIndexBased(topic)
         
         # filters for a specific topics for generating an example sample
@@ -295,7 +303,7 @@ class OutputRdf:
         if topic.article:
             auri = URIRef(topic.article.link)
             base.add((turi, schema.hasArticle, auri))
-            self.__addArticleTriples(graphs, auri, topic.article)
+            self.__addArticleTriples(auri, topic.article)
         
         # connect to parent topics
         if topic.parentTopics:
@@ -303,18 +311,41 @@ class OutputRdf:
                 parent = self.__getTopicURIIndexBased(t)
                 base.add((turi, schema.hasParentTopic, parent))
         
-    def loadGraph(self, fileName):
-        path = self.outputFolder / fileName
-        if(os.path.exists(path)):
-            g = Graph()
-            with open(path, "r", encoding="utf-8") as f:
-                g.parse(file=f)
-            return g
-        return
 
-    def saveGraph(self, graph, outputFileName="dataset.jsonld"):
-        s = graph.serialize(format="json-ld")
+    def __load_graph(self, filename:str, dest_graph:Graph):
+        path = self.outputFolder / filename
+        with open(path, "r", encoding="utf-8") as f:
+            dest_graph.parse(file=f)
         
-        with open(self.outputFolder / outputFileName, mode='w', encoding="utf-8") as f:
+
+    def load(self, file_prefix:str):
+        for name, g in self.graphs.items():
+            self.__load_graph(file_prefix + "_" + name + ".jsonld", g)
+    
+
+    def reset(self):
+        for name in self.graphs:
+            self.graphs[name] = Graph()
+
+
+    def __save_graph(self, graph:Graph, filename:str):
+        s = graph.serialize(format="json-ld")
+        path = self.outputFolder / filename
+        with open(path, mode='w', encoding="utf-8") as f:
             f.write(s)
+        print("Graph saved to", path)
+        
+    
+    def save(self, file_prefix:str):
+        for name in self.graphs.keys():
+            filename = file_prefix + "_" + name + ".jsonld"            
+            self.__save_graph(self.graphs[name], filename)
+            
+    
+    def exists(self, file_prefix:str):
+        for graph_name in self.graphs.keys():
+            if not exists(file_prefix + "_" + graph_name + ".jsonld"):
+                return False
+        return True
+        
     

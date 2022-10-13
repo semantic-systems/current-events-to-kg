@@ -737,7 +737,7 @@ class Extraction:
         
         return eventTypes
 
-    def parsePage(self, sourceUrl, page, year, monthStr, graphs: Dict[str,Graph]):
+    def parsePage(self, sourceUrl, page, year, monthStr):
         soup = BeautifulSoup(page, self.bs_parser)
         for day in range(self.args.monthly_start_day, self.args.monthly_end_day+1):
             self.analytics.dayStart()
@@ -769,7 +769,7 @@ class Extraction:
                 for i in initalTopics:
                     iText, _ = self.__getTextAndLinksRecursive(i)
                     iTopic = Topic(iText, iText, None, None, None, date, tnum, sourceUrl)
-                    self.outputData.storeTopic(iTopic, graphs)
+                    self.outputData.storeTopic(iTopic)
                     tnum += 1
                     #print("iTopic:", iText)
 
@@ -808,7 +808,7 @@ class Extraction:
                                     sourceLinks, sourceText, eventTypes, evnum) 
 
                             self.analytics.numEvents += 1
-                            self.outputData.storeEvent(e, graphs)
+                            self.outputData.storeEvent(e)
 
                             if(True in [a.locFlag for a in articles if a != None]):
                                 self.analytics.numEventsWithLocation += 1
@@ -823,7 +823,7 @@ class Extraction:
                             for t in topics:
                                 #print("\n", t.text)
                                 self.analytics.numTopics += 1
-                                self.outputData.storeTopic(t, graphs)
+                                self.outputData.storeTopic(t)
                                 tnum += 1
                                 
                             # append subtopics to stack
