@@ -17,7 +17,7 @@ class PlacesTemplatesExtractor():
     def get_templates(self, force_parse:bool) -> Set[str]:
         if exists(self.templates_cache_path) and not force_parse:
             print(f"Loading places templates from {self.templates_cache_path}")
-            with open(file_path, mode='r', encoding="utf-8") as f:
+            with open(self.templates_cache_path, mode='r', encoding="utf-8") as f:
                 template_list = json.load(f)
                 return set(template_list)
         else:
