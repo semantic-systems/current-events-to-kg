@@ -620,7 +620,7 @@ class Extraction:
     def __parseTopic(self, t, parentTopics, date:datetime.date, num_topics:int, sourceUrl:str) -> list[Topic]:
         if(isinstance(t, NavigableString)):
             # when parent is no link, but initial Topic without Link
-            return [Topic(t, t, None, None, None, date, num_topics, sourceUrl)]
+            return [Topic(t, t, None, None, date, num_topics, sourceUrl)]
         else:
             aList = t.find_all("a", recursive=False)
             # add italic topics
@@ -632,7 +632,7 @@ class Extraction:
                 # rare case when non inital topics have no link (14.1.2022 #4)
                 text, _ = self.__getTextAndLinksRecursive(t.contents[0])
                 text = text.strip("\n ")
-                return [Topic(text, text, None, None, None, date, num_topics, sourceUrl)]
+                return [Topic(text, text, None, None, date, num_topics, sourceUrl)]
             else:
                 topics = []
                 for a in aList:
@@ -649,7 +649,7 @@ class Extraction:
                     # index of the topic
                     tnum = num_topics + len(topics)
 
-                    t = Topic(a, text, href, article, parentTopics, date, tnum, sourceUrl)
+                    t = Topic(a, text, article, parentTopics, date, tnum, sourceUrl)
                     topics.append(t)
 
             return topics
@@ -768,7 +768,7 @@ class Extraction:
                 evnum = 0
                 for i in initalTopics:
                     iText, _ = self.__getTextAndLinksRecursive(i)
-                    iTopic = Topic(iText, iText, None, None, None, date, tnum, sourceUrl)
+                    iTopic = Topic(iText, iText, None, None, date, tnum, sourceUrl)
                     self.outputData.storeTopic(iTopic)
                     tnum += 1
                     #print("iTopic:", iText)

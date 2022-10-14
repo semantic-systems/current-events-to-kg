@@ -6,11 +6,10 @@ from typing import List
 
 
 class Topic():
-    def __init__(self, raw: str, text: str, link: str, article: Article, parentTopics: List["Topic"],
+    def __init__(self, raw: str, text: str, article: Article, parentTopics: List["Topic"],
                  date: date, index: int, sourceUrl: str):
         self.raw = raw
         self.text = text
-        self.link = link
         self.parentTopics = parentTopics
         self.article = article
         self.date = date
@@ -21,5 +20,4 @@ class Topic():
     def __str__(self):
         return "raw[:100]:" + str(self.raw)[:100] +"\n"\
             + "text:" + str(self.text) +"\n"\
-            + "link:" + str(self.link) +"\n"\
             + "parentTopics:" + str(self.parentTopics)+"\n"
