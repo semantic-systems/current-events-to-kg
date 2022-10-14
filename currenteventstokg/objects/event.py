@@ -8,7 +8,7 @@ from currenteventstokg.objects.sentence import Sentence
 from typing import Dict, List
 
 
-class NewsEvent():
+class Event():
     def __init__(self, raw: str, parentTopics: List[Topic], text: str,
                  sourceUrl: str, date: datetime.date, sentences: List[Sentence],
                  sourceLinks: List[Link], sourceText: str, eventTypes: Dict[str, str], eventIndex: int):

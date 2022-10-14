@@ -9,7 +9,7 @@ import re
 from rdflib import (FOAF, OWL, RDF, RDFS, XSD, BNode, Graph, Literal,
                     Namespace, URIRef)
 
-from .objects.newsEvent import NewsEvent
+from .objects.event import Event
 from .objects.topic import Topic
 from .objects.infoboxRow import *
 
@@ -177,7 +177,7 @@ class OutputRdf:
 
 
     
-    def storeEvent(self, event: NewsEvent):
+    def storeEvent(self, event: Event):
         base = self.graphs["base"]
         osm = self.graphs["osm"]
         raw = self.graphs["raw"]

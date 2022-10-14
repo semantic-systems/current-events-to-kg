@@ -22,7 +22,7 @@ from .nominatimService import NominatimService
 from .objects.article import Article
 from .objects.infoboxRow import *
 from .objects.link import Link
-from .objects.newsEvent import NewsEvent
+from .objects.event import Event
 from .objects.osmElement import OSMElement
 from .objects.sentence import Sentence
 from .objects.topic import Topic
@@ -804,7 +804,7 @@ class Extraction:
                             if len(eventTypes) > 0:
                                 self.analytics.numEventsWithType += 1
 
-                            e = NewsEvent(x, parentTopics, text, sourceUrl, date, sentences, 
+                            e = Event(x, parentTopics, text, sourceUrl, date, sentences, 
                                     sourceLinks, sourceText, eventTypes, evnum) 
 
                             self.analytics.numEvents += 1

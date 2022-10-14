@@ -6,7 +6,7 @@ from pprint import pprint
 
 from rdflib import Graph
 
-from .objects.newsEvent import NewsEvent
+from .objects.event import Event
 from .objects.topic import Topic
 
 
@@ -23,7 +23,7 @@ class OutputJson:
         
         self.outfile = "eventsWithLocation.json"
 
-    def storeEvent(self, event: NewsEvent, graphs: dict[str,Graph]):
+    def storeEvent(self, event: Event, graphs: dict[str,Graph]):
         for s in event.sentences:
             for i,l in enumerate(s.links):
                 a = s.articles[i]
