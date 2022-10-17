@@ -23,7 +23,8 @@ class Article():
         self.wikidataEntity = wikidataEntity
         self.wikidata_one_hop_graph = wikidata_one_hop_graph
         self.parent_locations_and_relation = parent_locations_and_relation
-        self.classes_with_labels = classes_with_labels
+        # classes_with_labels: wikidata classes, where the wd entity of this article is an instance of
+        self.classes_with_labels = classes_with_labels 
         self.microformats = microformats
         self.datePublished = datePublished
         self.dateModified = dateModified

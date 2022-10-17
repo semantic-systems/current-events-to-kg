@@ -17,6 +17,7 @@ from .current_events_graph import CurrentEventsGraphSplit, CurrentEventsGraphABC
 class CurrentEventDiagram():
     def __init__(self, sub_dir_name:str, graph_names:List[str], graph_modules=["base"], graph_class:CurrentEventsGraphABC=CurrentEventsGraphSplit):
         self.graph_names = graph_names # need to be sorted with first one first!
+        self.graph_class = graph_class
     
         self.start_month = month2int[self.graph_names[0].split("_")[0]]
         self.end_month = month2int[self.graph_names[-1].split("_")[0]]
@@ -31,9 +32,10 @@ class CurrentEventDiagram():
         self.diagrams_dir = currenteventstokg_module_dir / "diagrams/" / sub_dir_name
         makedirs(self.diagrams_dir, exist_ok=True)
 
-        self.graph = graph_class(graph_names=graph_names, graph_modules=graph_modules)
+        self._load_graph(graph_names, graph_modules)
     
-
+    def _load_graph(self, graph_names, graph_modules):
+        self.graph = self.graph_class(graph_names=graph_names, graph_modules=graph_modules)
 
 class CurrentEventBarChart(CurrentEventDiagram):
     def __init__(self, sub_dir_name:str, graph_names:List[str], graph_modules=["base"], graph_class:CurrentEventsGraphABC=CurrentEventsGraphSplit):
@@ -81,3 +83,15 @@ class CurrentEventBarChart(CurrentEventDiagram):
         
         
         return fig
+
+    def _create_bar_chart_from_data(self, ax, data, title:str, x_label:str, y_label:str):        
+        x = list(data.keys())
+        y = [data[key] for key in x]
+
+        ax.bar(x, y, 
+            color=None,
+            edgecolor="black",
+        )
+        ax.set_title(title)
+        ax.set_ylabel(y_label)
+        ax.set_xlabel(x_label)
