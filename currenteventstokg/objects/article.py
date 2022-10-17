@@ -7,26 +7,28 @@ from rdflib import Graph
 from typing import Dict, List
 
 class Article():
-    def __init__(self, link: str, locFlag: bool, coords: List[float], 
-            infobox: str, ibcontent: List[InfoboxRow], articleGraph: str, 
-            templates: List[str], wikidataWkts: List[OSMElement], 
-            wikidataEntity: str, wikidata_one_hop_graph: Graph, 
+    def __init__(self, url: str, location_flag: bool, coordinates: List[float], 
+            infobox: str, infobox_rows: List[InfoboxRow], articleGraph: str, 
+            templates: List[str], wikidata_wkts: List[OSMElement], 
+            wikidata_entity: str, wikidata_one_hop_graph: Graph, 
             parent_locations_and_relation: Dict[str, List[str]], 
             classes_with_labels: Dict[str, str], microformats: Dict[str, str], 
-            datePublished: str, dateModified: str, name: str, headline: str):
-        self.link = link
-        self.locFlag = locFlag
-        self.coords = coords
+            date_published: str, date_modified: str, name: str, headline: str):
+        self.url = url
+        self.location_flag = location_flag
+        self.coordinates = coordinates
         self.infobox = infobox
-        self.ibcontent = ibcontent
-        self.wikidataWkts = wikidataWkts
-        self.wikidataEntity = wikidataEntity
+        self.infobox_rows = infobox_rows
+        self.wikidata_wkts = wikidata_wkts
+        self.wikidata_entity = wikidata_entity
         self.wikidata_one_hop_graph = wikidata_one_hop_graph
         self.parent_locations_and_relation = parent_locations_and_relation
         # classes_with_labels: wikidata classes, where the wd entity of this article is an instance of
         self.classes_with_labels = classes_with_labels 
         self.microformats = microformats
-        self.datePublished = datePublished
-        self.dateModified = dateModified
+        self.date_published = date_published
+        self.date_modified = date_modified
         self.name = name
         self.headline = headline
+
+

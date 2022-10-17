@@ -672,7 +672,7 @@ class Extraction:
                 sentenceLinks.append(l)
                 sentenceArticles.append(articles[i])
                 
-                if articles[i] and articles[i].locFlag:
+                if articles[i] and articles[i].location_flag:
                     sentenceLocNum += 1
                 i += 1
 
@@ -810,7 +810,7 @@ class Extraction:
                             self.analytics.numEvents += 1
                             self.outputData.storeEvent(e)
 
-                            if(True in [a.locFlag for a in articles if a != None]):
+                            if(True in [a.location_flag for a in articles if a != None]):
                                 self.analytics.numEventsWithLocation += 1
                             # else:
                             #     print("\n", e)

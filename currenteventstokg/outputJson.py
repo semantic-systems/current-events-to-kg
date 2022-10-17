@@ -28,7 +28,7 @@ class OutputJson:
             for i,l in enumerate(s.links):
                 a = s.articles[i]
                 if a:
-                    if a.locFlag:                    
+                    if a.location_flag:                    
                         line = { 
                             "text":str(event.text),
                             "s_begin":str(s.start),
@@ -41,7 +41,7 @@ class OutputJson:
                             f.write("\n")
                         
                         return
-        if True in [a.locFlag for a in event.articles if a != None]:
+        if True in [a.location_flag for a in event.articles if a != None]:
             print(event.text)
             pprint(event.articles)
             for s in event.sentences:

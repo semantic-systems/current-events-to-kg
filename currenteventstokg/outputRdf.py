@@ -15,7 +15,9 @@ from .objects.infoboxRow import *
 
 
 # data under https://data.coypu.org/ENTITY-TYPE/DATA-SOURCE/ID
-topics = Namespace("https://data.coypu.org/topic/wikipedia-current-events/")
+topics_ns = Namespace("https://data.coypu.org/topic/wikipedia-current-events/")
+osm_element_ns = Namespace("https://data.coypu.org/osmelement/wikipedia-current-events/")
+
 schema = Namespace("https://schema.coypu.org/global#")
 NIF = Namespace("http://persistence.uni-leipzig.org/nlp2rdf/ontologies/nif-core#")
 SEM = Namespace("http://semanticweb.cs.vu.nl/2009/11/sem/")
@@ -47,7 +49,7 @@ class OutputRdf:
         if link != None and re.match("https://en.wikipedia.org/wiki/", link):
             uri = URIRef(link)
         else:
-            uri =  topics[str(hashlib.md5(t.text.encode('utf-8')).hexdigest())]
+            uri =  topics_ns[str(hashlib.md5(t.text.encode('utf-8')).hexdigest())]
         return uri
 
     def __getTopicURIIndexBased(self, t):
@@ -62,6 +64,11 @@ class OutputRdf:
         suffix = str(e.date.day) + "_e" + str(e.eventIndex)
         uri = Namespace(prefix)[suffix]
         return uri
+
+    def __get_osm_uri(self, osmElement):
+        suffix = str(osmElement.osmType) + "_" + str(osmElement.osmId)
+        uri = osm_element_ns[suffix]
+        return uri
     
     
     def __addCoordinates(self, graph, parentUri, coordinates: list[float]):
@@ -72,7 +79,7 @@ class OutputRdf:
         graph.add((puri, WGS.long, Literal(str(coordinates[1]), datatype=XSD.float)))
     
     def __addOsmElement(self, graph, target, relation, osmElement):
-        osmuri = BNode()
+        osmuri = self.__get_osm_uri(osmElement)
         if osmElement.osmType or osmElement.osmId or osmElement.wkt:
             graph.add((target, relation, osmuri))
             graph.add((osmuri, RDF.type, schema.OsmElement))
@@ -103,16 +110,16 @@ class OutputRdf:
         ohg = self.graphs["ohg"]
     
         base.add((target, RDF.type, schema.WikipediaArticle))
-        if article.locFlag:
+        if article.location_flag:
             base.add((target, RDF.type, schema.Location))
         if article.infobox:
             raw.add((target, schema.hasInfobox, Literal(str(article.infobox), datatype=XSD.string)))
-        if article.coords:
-            self.__addCoordinates(base, target, article.coords)
-        if len(article.wikidataWkts) >= 1:
-            for wkt in article.wikidataWkts:
+        if article.coordinates:
+            self.__addCoordinates(base, target, article.coordinates)
+        if len(article.wikidata_wkts) >= 1:
+            for wkt in article.wikidata_wkts:
                 self.__addOsmElement(osm, target, schema.hasOsmElementFromWikidata, wkt)
-        for row in article.ibcontent.values():
+        for row in article.infobox_rows.values():
             ruri = BNode()
             base.add((target, schema.hasInfoboxRow, ruri))
 
@@ -158,7 +165,7 @@ class OutputRdf:
         if "dtend" in article.microformats:
             base.add((target, schema.hasMicroformatsDtend, Literal(str(article.microformats["dtend"]), datatype=XSD.string)))
 
-        base.add((target, OWL.sameAs, URIRef(article.wikidataEntity)))
+        base.add((target, OWL.sameAs, URIRef(article.wikidata_entity)))
         ohg += article.wikidata_one_hop_graph
         
         # add labels of classes which entity is instance of (classes are URIs of wd:entity in 1hop graph)
@@ -166,10 +173,10 @@ class OutputRdf:
             ohg.add((URIRef(WD[entityId]), RDFS.label, Literal(str(label), datatype=XSD.string)))
         
         # add doc infos
-        if article.datePublished:
-            base.add((target, schema.hasDatePublished, Literal(str(article.datePublished), datatype=XSD.dateTime)))
-        if article.dateModified:
-            base.add((target, schema.hasDateModified, Literal(str(article.dateModified), datatype=XSD.dateTime)))
+        if article.date_published:
+            base.add((target, schema.hasDatePublished, Literal(str(article.date_published), datatype=XSD.dateTime)))
+        if article.date_modified:
+            base.add((target, schema.hasDateModified, Literal(str(article.date_modified), datatype=XSD.dateTime)))
         if article.name:
             base.add((target, schema.hasName, Literal(str(article.name), datatype=XSD.string)))
         if article.headline:
@@ -187,7 +194,7 @@ class OutputRdf:
         for s in event.sentences:
             all_articles.extend(s.articles)
         
-        wdLocArticleURIs = [a.wikidataEntity for a in all_articles if a != None and a.locFlag == True]
+        wdLocArticleURIs = [a.wikidata_entity for a in all_articles if a != None and a.location_flag == True]
         wdLocArticleURIs4countingLeafs = set(wdLocArticleURIs)
         
         # filters for a specific event for generating an example sample
@@ -220,10 +227,9 @@ class OutputRdf:
 
         # wikidata type
         for entityId, label in event.eventTypes.items():
-            cluri = BNode()
+            cluri = URIRef(WD[entityId])
             base.add((evuri, schema.hasEventType, cluri))
-            base.add((cluri, schema.hasEventTypeLabel, Literal(str(label), datatype=XSD.string)))
-            base.add((cluri, schema.hasEventTypeURI, URIRef(WD[entityId])))
+            base.add((cluri, RDFS.label, Literal(str(label), datatype=XSD.string)))
 
         # the news sources
         for l in event.sourceLinks:
@@ -265,9 +271,9 @@ class OutputRdf:
                     for parent in article.parent_locations_and_relation:
                         # dont link reflexive (eg USA links USA as its country)
                         
-                        if parent in wdLocArticleURIs and article.wikidataEntity != parent:
+                        if parent in wdLocArticleURIs and article.wikidata_entity != parent:
                             pLocBNode = BNode()
-                            base.add((URIRef(article.wikidataEntity), schema.hasParentLocation, pLocBNode))
+                            base.add((URIRef(article.wikidata_entity), schema.hasParentLocation, pLocBNode))
                             base.add((pLocBNode, schema.parentLocation, URIRef(parent)))
                             for prop in article.parent_locations_and_relation[parent]:
                                 base.add((pLocBNode, schema.hasUsedPropertyOriginally, URIRef(prop)))
@@ -301,7 +307,7 @@ class OutputRdf:
         
         # store article behind link
         if topic.article:
-            auri = URIRef(topic.article.link)
+            auri = URIRef(topic.article.url)
             base.add((turi, schema.hasArticle, auri))
             self.__addArticleTriples(auri, topic.article)
         
