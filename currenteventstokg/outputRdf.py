@@ -8,10 +8,11 @@ import re
 
 from rdflib import (FOAF, OWL, RDF, RDFS, XSD, BNode, Graph, Literal,
                     Namespace, URIRef)
-
+from urllib.parse import quote_plus
 from .objects.event import Event
 from .objects.topic import Topic
 from .objects.infoboxRow import *
+from .objects.article import Article
 
 
 # data under https://data.coypu.org/ENTITY-TYPE/DATA-SOURCE/ID
@@ -70,6 +71,13 @@ class OutputRdf:
         uri = osm_element_ns[suffix]
         return uri
     
+    def __get_infobox_row_uri(self, infobox_row:InfoboxRow, article:Article):
+        prefix = article.url + "#"
+        url_encoded_label = quote_plus(infobox_row.label)
+        suffix = f"ibrow_{url_encoded_label}"
+        uri = Namespace(prefix)[suffix]
+        return uri
+    
     
     def __addCoordinates(self, graph, parentUri, coordinates: list[float]):
         puri = BNode()
@@ -120,7 +128,8 @@ class OutputRdf:
             for wkt in article.wikidata_wkts:
                 self.__addOsmElement(osm, target, schema.hasOsmElementFromWikidata, wkt)
         for row in article.infobox_rows.values():
-            ruri = BNode()
+            ruri = self.__get_infobox_row_uri(row, article)
+            print(ruri)
             base.add((target, schema.hasInfoboxRow, ruri))
 
             # add base values of InfoboxRow
