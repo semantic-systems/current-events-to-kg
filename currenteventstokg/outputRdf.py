@@ -136,7 +136,7 @@ class OutputRdf:
             self.__addCoordinates(base, target, article.coordinates)
         if len(article.wikidata_wkts) >= 1:
             for wkt in article.wikidata_wkts:
-                self.__addOsmElement(osm, target, schema.hasOsmElementFromWikidata, wkt)
+                self.__addOsmElement(osm, target, schema.hasOsmElement, wkt)
         for row in article.infobox_rows.values():
             ruri = self.__get_infobox_row_uri(row, article)
             base.add((target, schema.hasInfoboxRow, ruri))
@@ -149,7 +149,7 @@ class OutputRdf:
                 self.__addLinkTriples(base, ruri, schema.hasLinkAsValue, l, luri)
                 # add OSM elements to location links
                 if isinstance(row, InfoboxRowLocation):
-                    self.__addOsmElement(osm, luri, schema.hasOsmElementFromText, row.valueLinks_wkts[l])
+                    self.__addOsmElement(osm, luri, schema.hasOsmElement, row.valueLinks_wkts[l])
             
             # add specific values
             if isinstance(row, InfoboxRowLocation):
@@ -290,11 +290,9 @@ class OutputRdf:
                         # dont link reflexive (eg USA links USA as its country)
                         
                         if parent in wdLocArticleURIs and article.wikidata_entity != parent:
-                            pLocBNode = BNode()
-                            base.add((URIRef(article.wikidata_entity), schema.hasParentLocation, pLocBNode))
-                            base.add((pLocBNode, schema.parentLocation, URIRef(parent)))
-                            for prop in article.parent_locations_and_relation[parent]:
-                                base.add((pLocBNode, schema.hasUsedPropertyOriginally, URIRef(prop)))
+                            wd_article = URIRef(article.wikidata_entity)
+                            wd_parent = URIRef(parent)
+                            base.add((wd_article, schema.hasParentLocation, wd_parent))
 
                             if parent in wdLocArticleURIs4countingLeafs:
                                 wdLocArticleURIs4countingLeafs.remove(parent)
