@@ -18,13 +18,15 @@ from .objects.article import Article
 # data under https://data.coypu.org/ENTITY-TYPE/DATA-SOURCE/ID
 topics_ns = Namespace("https://data.coypu.org/topic/wikipedia-current-events/")
 osm_element_ns = Namespace("https://data.coypu.org/osmelement/wikipedia-current-events/")
+point_ns = Namespace("https://data.coypu.org/point/wikipedia-current-events/")
 
-schema = Namespace("https://schema.coypu.org/global#")
+schema = Namespace("https://schema.coypu.org/events#")
 NIF = Namespace("http://persistence.uni-leipzig.org/nlp2rdf/ontologies/nif-core#")
 SEM = Namespace("http://semanticweb.cs.vu.nl/2009/11/sem/")
 WGS = Namespace("http://www.w3.org/2003/01/geo/wgs84_pos#")
 GEO = Namespace("http://www.opengis.net/ont/geosparql#")
 WD = Namespace("http://www.wikidata.org/entity/")
+CIDOC = Namespace("http://www.cidoc-crm.org/cidoc-crm/")
 
 class OutputRdf:
 
@@ -44,7 +46,7 @@ class OutputRdf:
         }
 
 
-    def __getTopicURI(self, t):
+    def __getTopicURI(self, t) -> URIRef:
         link = t.link
         
         if link != None and re.match("https://en.wikipedia.org/wiki/", link):
@@ -53,40 +55,49 @@ class OutputRdf:
             uri =  topics_ns[str(hashlib.md5(t.text.encode('utf-8')).hexdigest())]
         return uri
 
-    def __getTopicURIIndexBased(self, t):
+    def __getTopicURIIndexBased(self, t) -> URIRef:
         prefix = t.sourceUrl + "#"
         suffix = str(t.date.day) + "_t" + str(t.index)
         uri = Namespace(prefix)[suffix]
         return uri
 
     
-    def __getEventURIIndexBased(self, e):
+    def __getEventURIIndexBased(self, e:Event) -> URIRef:
         prefix = e.sourceUrl + "#"
         suffix = str(e.date.day) + "_e" + str(e.eventIndex)
         uri = Namespace(prefix)[suffix]
         return uri
 
-    def __get_osm_uri(self, osmElement):
+    def __get_osm_uri(self, osmElement:OSMElement) -> URIRef:
         suffix = str(osmElement.osmType) + "_" + str(osmElement.osmId)
         uri = osm_element_ns[suffix]
         return uri
     
-    def __get_infobox_row_uri(self, infobox_row:InfoboxRow, article:Article):
+    def __get_infobox_row_uri(self, infobox_row:InfoboxRow, article:Article) -> URIRef:
         prefix = article.url + "#"
         url_encoded_label = quote_plus(infobox_row.label)
-        suffix = f"ibrow_{url_encoded_label}"
+        suffix = f"infoboxrow_{url_encoded_label}"
         uri = Namespace(prefix)[suffix]
         return uri
     
+    def __get_point_uri(self, coordinates:List[float]) -> URIRef:
+        url_encoded_coords = quote_plus(f"{coordinates[0]}_{coordinates[1]}")
+        uri = point_ns[url_encoded_coords]
+        return uri
     
-    def __addCoordinates(self, graph, parentUri, coordinates: list[float]):
-        puri = BNode()
+    def __get_link_uri(self, base_uri:URIRef, index:int) -> URIRef:
+        uri = base_uri + f"_l{index}"
+        return uri
+    
+    
+    def __addCoordinates(self, graph:Graph, parentUri:URIRef, coordinates: list[float]):
+        puri = self.__get_point_uri(coordinates)
         graph.add((parentUri, schema.hasCoordinates, puri))
         graph.add((puri, RDF.type, WGS.Point))
         graph.add((puri, WGS.lat, Literal(str(coordinates[0]), datatype=XSD.float)))
         graph.add((puri, WGS.long, Literal(str(coordinates[1]), datatype=XSD.float)))
     
-    def __addOsmElement(self, graph, target, relation, osmElement):
+    def __addOsmElement(self, graph:Graph, target:URIRef, relation:URIRef, osmElement:OSMElement):
         osmuri = self.__get_osm_uri(osmElement)
         if osmElement.osmType or osmElement.osmId or osmElement.wkt:
             graph.add((target, relation, osmuri))
@@ -98,20 +109,19 @@ class OutputRdf:
             if osmElement.wkt:
                 graph.add((osmuri, schema.hasOsmWkt, Literal(str(osmElement.wkt), datatype=GEO.wktLiteral)))
     
-    def __addLinkTriples(self, graph, target, predicate, link) -> BNode:
-        luri = BNode()
-        graph.add((target, predicate, luri))
-        graph.add((luri, RDF.type, schema.Link))
-        graph.add((luri, NIF.referenceContext, target))
+    def __addLinkTriples(self, graph:Graph, target:URIRef, predicate:URIRef, link:Link, link_uri:URIRef):
+        print(link_uri)
+        graph.add((target, predicate, link_uri))
+        graph.add((link_uri, RDF.type, schema.Link))
+        graph.add((link_uri, NIF.referenceContext, target))
         hrefuri = URIRef(str(link.href))
         graph.add((hrefuri, RDF.type, FOAF.Document))
-        graph.add((luri, schema.hasReference, hrefuri))
-        graph.add((luri, schema.hasText, Literal(str(link.text), datatype=XSD.string)))
-        graph.add((luri, NIF.beginIndex, Literal(link.startPos, datatype=XSD.nonNegativeInteger)))
-        graph.add((luri, NIF.endIndex, Literal(link.endPos, datatype=XSD.nonNegativeInteger)))
-        return luri
+        graph.add((link_uri, schema.hasReference, hrefuri))
+        graph.add((link_uri, schema.hasText, Literal(str(link.text), datatype=XSD.string)))
+        graph.add((link_uri, NIF.beginIndex, Literal(link.startPos, datatype=XSD.nonNegativeInteger)))
+        graph.add((link_uri, NIF.endIndex, Literal(link.endPos, datatype=XSD.nonNegativeInteger)))
     
-    def __addArticleTriples(self, target, article):
+    def __addArticleTriples(self, target:URIRef, article:Article):
         base = self.graphs["base"]
         osm = self.graphs["osm"]
         raw = self.graphs["raw"]
@@ -129,14 +139,14 @@ class OutputRdf:
                 self.__addOsmElement(osm, target, schema.hasOsmElementFromWikidata, wkt)
         for row in article.infobox_rows.values():
             ruri = self.__get_infobox_row_uri(row, article)
-            print(ruri)
             base.add((target, schema.hasInfoboxRow, ruri))
 
             # add base values of InfoboxRow
             base.add((ruri, RDFS.label, Literal(str(row.label), datatype=XSD.string)))
             base.add((ruri, schema.hasValue, Literal(str(row.value), datatype=XSD.string)))
             for i, l in enumerate(row.valueLinks):
-                luri = self.__addLinkTriples(base, ruri, schema.hasLinkAsValue, l)
+                luri = self.__get_link_uri(ruri, i)
+                self.__addLinkTriples(base, ruri, schema.hasLinkAsValue, l, luri)
                 # add OSM elements to location links
                 if isinstance(row, InfoboxRowLocation):
                     self.__addOsmElement(osm, luri, schema.hasOsmElementFromText, row.valueLinks_wkts[l])
@@ -240,12 +250,9 @@ class OutputRdf:
             base.add((evuri, schema.hasEventType, cluri))
             base.add((cluri, RDFS.label, Literal(str(label), datatype=XSD.string)))
 
-        # the news sources
-        for l in event.sourceLinks:
-            self.__addLinkTriples(base, evuri, schema.hasSource, l)
-
         # sentences
         lastSentenceUri = None
+        num_sentence_links = 0
         sentences = event.sentences
         for i in range(len(sentences)):
             sentence = sentences[i]
@@ -269,7 +276,9 @@ class OutputRdf:
                 link = links[j]
 
                 # link
-                self.__addLinkTriples(base, suri, schema.hasLink, link)
+                luri = self.__get_link_uri(evuri, num_sentence_links)
+                self.__addLinkTriples(base, suri, schema.hasLink, link, luri)
+                num_sentence_links += 1
                 
                 # article
                 if article:
@@ -292,6 +301,11 @@ class OutputRdf:
             lastSentenceUri = suri
         if len(wdLocArticleURIs4countingLeafs) > 1:
             self.analytics.numEventsWithMoreThanOneLeafLocation += 1
+        
+        # the news sources
+        for i, l in enumerate(event.sourceLinks):
+            luri = self.__get_link_uri(evuri, i + num_sentence_links)
+            self.__addLinkTriples(base, evuri, schema.hasSource, l, luri)
         
     
     def storeTopic(self, topic: Topic):
