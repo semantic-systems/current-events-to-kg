@@ -212,6 +212,9 @@ if __name__ == '__main__':
             file_prefix = month_year
         else:
             file_prefix = day_span + "_" + month_year
+        
+        if args.sample_mode:
+            file_prefix = "sample"
 
         # execute in different operation modes        
         if args.create_combined_analytics:
