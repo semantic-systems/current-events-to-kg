@@ -2,11 +2,11 @@
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 from datetime import date
 from currenteventstokg.objects.article import Article
-from typing import List
+from typing import List, Optional
 
 
 class Topic():
-    def __init__(self, raw: str, text: str, article: Article, parentTopics: List["Topic"],
+    def __init__(self, raw: str, text: str, article: Optional[Article], parentTopics: List["Topic"],
                  date: date, index: int, sourceUrl: str):
         self.raw = raw
         self.text = text

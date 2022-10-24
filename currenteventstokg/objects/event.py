@@ -11,7 +11,8 @@ from typing import Dict, List
 class Event():
     def __init__(self, raw: str, parentTopics: List[Topic], text: str,
                  sourceUrl: str, date: datetime.date, sentences: List[Sentence],
-                 sourceLinks: List[Link], sourceText: str, eventTypes: Dict[str, str], eventIndex: int):
+                 sourceLinks: List[Link], sourceText: str, eventTypes: Dict[str, str], 
+                 eventIndex: int, category:str):
         self.raw = raw
         self.parentTopics = parentTopics
         self.text = text
@@ -22,6 +23,7 @@ class Event():
         self.sourceText = sourceText
         self.eventTypes = eventTypes
         self.eventIndex = eventIndex # n-th event of the day
+        self.category = category
     
     def getTextWithoutSource(self):
         t = self.text[:-len(self.sourceText)]

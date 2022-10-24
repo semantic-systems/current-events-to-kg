@@ -39,6 +39,9 @@ class WikidataService(Sleeper):
         self.labelCacheFilePath = self.basedir / args.cache_dir / "label_cache.json"
         self.__loadLabelCache()
 
+        self.wd2wp_cache_path = self.basedir / args.cache_dir / "wd2wp_cache.json"
+        self.__load_wd2wp_cache()
+        
         # save caches after termination
         register(self.__saveCaches)
 
@@ -215,6 +218,52 @@ SELECT DISTINCT ?osmrelid ?osmobj WHERE {
             self.osmCache[entityURI] = {"osmrelids":osmrelids, "osmobjs":osmobjs} 
             
         return osmrelids, osmobjs
+    
+    def get_wikipedia_articles(self, entitys:List[str]):
+        result = {}
+        missing_eids = set()
+        
+        for e_uri in entitys:
+            eid = e_uri.fragment
+            if not self.args.ignore_wikidata2wikipedia_cache and eid in self.wd2wp_cache:
+                result[eid] = self.wd2wp_cache[eid]
+            else:
+                missing_eids.add(eid)
+        
+        q = """PREFIX wd: <http://www.wikidata.org/entity/>
+PREFIX schema: <https://schema.org/>
+SELECT DISTINCT ?e ?a WHERE{
+"""
+        for i, eid in enumerate(missing_eids):
+            block = Template("""{
+BIND(wd:$e AS ?e).
+?a  schema:about ?e;
+	schema:isPartOf <https://en.wikipedia.org/>.
+}""").substitute(e=eid)
+            if i == 0:
+                q += block
+            else:
+                q += "UNION " + block
+        
+        if len(missing_eids) > 0:
+            q += "\n}"
+            
+            self.sparql.setQuery(q)
+            self.sparql.setReturnFormat(JSON)
+
+            self.sleepUntilNewRequestLegal(self.minSecondsBetweenQueries)
+            
+            res = self.__queryAndConvertThreeTrysOn110()
+
+            for row in res["results"]["bindings"]:
+                eid = row["e"]["value"].rsplit("/",1)[-1]
+                article_url = row["a"]["value"]
+                
+                result[eid] = article_url
+                self.wd2wp_cache[eid] = article_url
+
+        return result        
+
 
     
     def __queryAndConvertThreeTrysOn110(self):
@@ -260,6 +309,13 @@ SELECT DISTINCT ?osmrelid ?osmobj WHERE {
                 self.labelCache = load(f)
         else:
             self.labelCache = {}
+    
+    def __load_wd2wp_cache(self):
+        if(exists(self.wd2wp_cache_path) and not self.args.ignore_wikidata2wikipedia_cache): 
+            with open(self.wd2wp_cache_path, mode='r', encoding="utf-8") as f:
+                self.wd2wp_cache = load(f)
+        else:
+            self.wd2wp_cache = {}
 
     def __saveCaches(self):
         with open(self.osmCacheFilePath, mode='w', encoding="utf-8") as f:
@@ -270,6 +326,9 @@ SELECT DISTINCT ?osmrelid ?osmobj WHERE {
 
         with open(self.labelCacheFilePath, mode='w', encoding="utf-8") as f:
             dump(self.labelCache, f)
+        
+        with open(self.wd2wp_cache_path, mode='w', encoding="utf-8") as f:
+            dump(self.wd2wp_cache, f)
     
 
     def __getOneHopSubgraphCacheFileName(self, entityURI):

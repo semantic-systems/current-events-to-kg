@@ -63,6 +63,10 @@ if __name__ == '__main__':
         action='store_true', 
         help="Query again even if exists in cache")
 
+    parser.add_argument('-iwwc', '--ignore_wikidata2wikipedia_cache', 
+        action='store_true', 
+        help="Query again even if exists in cache")
+
     parser.add_argument('-ifc', '--ignore_falcon2_cache', 
         action='store_true', 
         help="Query again even if exists in cache")

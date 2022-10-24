@@ -4,9 +4,11 @@
 from currenteventstokg.objects.article import Article
 from currenteventstokg.objects.link import Link
 
+from typing import List, Optional
+
 
 class Sentence():
-    def __init__(self, text:str, start:int, end:int, links:list[Link], articles:list[Article]):
+    def __init__(self, text:str, start:int, end:int, links:List[Link], articles:List[Optional[Article]]):
         self.text = text
         self.start = start
         self.end = end

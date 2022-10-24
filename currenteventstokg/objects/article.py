@@ -4,21 +4,23 @@
 from currenteventstokg.objects.infoboxRow import InfoboxRow
 from currenteventstokg.objects.osmElement import OSMElement
 from rdflib import Graph
-from typing import Dict, List
+from typing import Dict, List, Optional
+import datetime
 
 class Article():
-    def __init__(self, url: str, location_flag: bool, coordinates: List[float], 
-            infobox: str, infobox_rows: List[InfoboxRow], articleGraph: str, 
-            templates: List[str], wikidata_wkts: List[OSMElement], 
+    def __init__(self, url: str, location_flag: bool, coordinates: Optional[List[float]], 
+            infobox: str, infobox_rows: List[InfoboxRow], infobox_coordinates:Optional[List[float]], 
+            articleGraph: str, templates: List[str], wikidata_wkts: List[OSMElement], 
             wikidata_entity: str, wikidata_one_hop_graph: Graph, 
             parent_locations_and_relation: Dict[str, List[str]], 
-            classes_with_labels: Dict[str, str], microformats: Dict[str, str], 
+            classes_with_labels: Dict[str, str], microformats: Dict[str, datetime.datetime], 
             date_published: str, date_modified: str, name: str, headline: str):
         self.url = url
         self.location_flag = location_flag
         self.coordinates = coordinates
         self.infobox = infobox
         self.infobox_rows = infobox_rows
+        self.infobox_coordinates = infobox_coordinates
         self.wikidata_wkts = wikidata_wkts
         self.wikidata_entity = wikidata_entity
         self.wikidata_one_hop_graph = wikidata_one_hop_graph

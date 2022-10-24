@@ -13,11 +13,15 @@ class InfoboxRow():
         self.valueLinks = valueLinks
 
 class InfoboxRowLocation(InfoboxRow):
-    def __init__(self, label:str, value:str, valueLinks:List[Link], 
-            falcon2_wikidata_entities:List[str], falcon2_dbpedia_entities:List[str], 
+    def __init__(self, label:str, value:str, 
+            valueLinks:List[Link], link_articles:List["Article"],
+            falcon2_wikidata_entities:List[str], falcon2_articles:List["Article"], 
+            falcon2_dbpedia_entities:List[str], 
             valueLinks_wkts:Dict[Link, OSMElement]):
         super().__init__(label, value, valueLinks)
+        self.link_articles = link_articles
         self.falcon2_wikidata_entities = falcon2_wikidata_entities
+        self.falcon2_articles = falcon2_articles
         self.falcon2_dbpedia_entities = falcon2_dbpedia_entities
         self.valueLinks_wkts = valueLinks_wkts
 
@@ -32,10 +36,11 @@ class InfoboxRowTime(InfoboxRow):
 class InfoboxRowDate(InfoboxRow):
     def __init__(self, label:str, value:str, valueLinks:List[Link], 
             date: datetime.datetime, enddate: Optional[datetime.datetime], 
-            ongoing: bool, timezone: Optional[str]):
+            ongoing: bool, timezone: Optional[str], start_or_end_date:str):
         super().__init__(label, value, valueLinks) 
         self.date = date
         self.enddate = enddate
         self.ongoing = ongoing
         self.timezone = timezone
+        self.start_or_end_date = start_or_end_date # "start" or "end"
     

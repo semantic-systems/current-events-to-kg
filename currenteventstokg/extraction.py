@@ -11,7 +11,7 @@ from string import Template
 from typing import Dict, List, Optional, Tuple, Union
 
 from bs4 import BeautifulSoup, NavigableString, Tag
-from rdflib import Graph
+from rdflib import Graph, URIRef
 
 from .analytics import Analytics
 from .dateTimeParser import DateTimeParser
@@ -169,9 +169,9 @@ class Extraction:
                 return self.__parseCoords(geodms)
         return
 
-    def __testIfPageIsLocation(self, p, ib, coord, templates):
+    def __testIfPageIsLocation(self, p, ib, templates):
         # test for infobox template css classes
-        if self.__testIfPageIsLocationCss(p, ib, coord):
+        if self.__testIfPageIsLocationCss(p, ib):
             return True
         
         # test if templates match place templates
@@ -180,7 +180,7 @@ class Extraction:
 
         return False
 
-    def __testIfPageIsLocationCss(self, p, ib, coord):
+    def __testIfPageIsLocationCss(self, p, ib):
         if ib:
             self.analytics.articleInfoboxClasses(ib.attrs["class"])
 
@@ -213,7 +213,7 @@ class Extraction:
         return (float(degrees) + float(minutes)/60 + float(seconds)/(3600)) * (-1 if direction in ['W', 'S'] else 1)
     
     
-    def __parseCoords(self, coordsSpan) -> list[float]:
+    def __parseCoords(self, coordsSpan) -> Optional[List[float]]:
         lat = coordsSpan.find("span", attrs={"class": "latitude"}, recursive=False)
         lon = coordsSpan.find("span", attrs={"class": "longitude"}, recursive=False)
         if lat and lon:
@@ -221,7 +221,11 @@ class Extraction:
         return None
     
 
-    def __getLocationFromInfobox(self, ib, templates, infoboxTemplates, topicFlag):
+    def __getLocationFromInfobox(
+        self, ib, templates, infoboxTemplates, topicFlag, get_linked_articles=False) -> Tuple[
+            List[InfoboxRow],
+            Optional[List[float]]
+        ]:
 
         def getTextAndLinksFromLocationValue(self, parentTag):
             text, links = "", []
@@ -244,6 +248,7 @@ class Extraction:
             return text, links
 
         rows = {}
+        coords = None
 
         ## Notes: 
         # Template:Infobox_election only flag img...
@@ -257,7 +262,7 @@ class Extraction:
         # find location label tag
         th = ib.tbody.find("th", string=label, attrs={"class": "infobox-label"})
         if not th:
-            return rows
+            return rows, coords
         
         # find value tag
         td = th.find_next_sibling("td")
@@ -277,6 +282,17 @@ class Extraction:
             # get entities about the location value from falcon2 api
             falcon2_wikidata_entities, falcon2_dbpedia_entities = self.falcon2Service.querySentence(locText)
 
+            link_articles, wd_entities_with_wp_article, falcon_articles = [],[],[]
+            if get_linked_articles:
+                # get wikipedia articles from links
+                link_articles = self.__getArticles(locLinks)
+
+                # get wikipedia articles from falcons wikidata entities
+                wd_uris = [URIRef(e) for e in falcon2_wikidata_entities]
+                wd_uris2wp_urls = self.wikidataService.get_wikipedia_articles(wd_uris)
+                wd_entities_with_wp_article = wd_uris2wp_urls.values()
+                falcon_articles = self.__getArticles(wd_entities_with_wp_article)
+
             # get wkts from infobox location value link labels
             ib_wkts = {}
             for l in locLinks:
@@ -285,27 +301,27 @@ class Extraction:
                 ib_wkts[l] = OSMElement(res.id(), res.type(), res.wkt())
 
             # create row
-            rows[label] = InfoboxRowLocation(label, locText, locLinks, 
-                                    falcon2_wikidata_entities, falcon2_dbpedia_entities, ib_wkts)
-            self.analytics.numTopicsWithLocation += 1
+            rows[label] = InfoboxRowLocation(label, locText, 
+                                    locLinks, link_articles,
+                                    wd_entities_with_wp_article, falcon_articles, 
+                                    falcon2_dbpedia_entities, ib_wkts)
+            if topicFlag:
+                self.analytics.numTopicsWithLocation += 1
         elif topicFlag:
             for t in infoboxTemplates:
                 self.analytics.topicInfoboxTemplateWithoutLocationFound(t)
         
-        # extract coordinates from "Location" label and save it as seperate row
-        coords = None
+        # extract coordinates from "Location" label
         geodms = td.find("span", attrs={"class": "geo-dms"})
         if geodms:
             coords = self.__parseCoords(geodms)
-            if coords:
-                rows["Coordinates"] = InfoboxRow("Coordinates", coords, [])
 
-        return rows
+        return rows, coords
     
     
     def __getDateAndTimeFromTopicInfobox(self, ib, templates, labels) -> Tuple[
                 Dict[(str,InfoboxRow)],
-                Dict[str, str],
+                Dict[str, datetime.datetime],
             ]:
 
         def getTextAndLinksFromDateValue(self, valueTag):
@@ -342,33 +358,52 @@ class Extraction:
 
                     return {label: InfoboxRow(label, text, links)}
             return {}
+        
+        def parse_microformat(mf:str) -> Optional[datetime.datetime]:
+            # format observed: 2021-01-25 (and 2021, but will be ignored)
+            match = re.search(r"(?P<y>[0-9]{4})-(?P<m>[0-9]{2})-(?P<d>[0-9]{2})", mf)
+            if match:
+                y = int(match.group("y"))
+                m = int(match.group("m"))
+                d = int(match.group("d"))
+                return datetime.datetime(y,m,d)
+            return None
 
         microformats = {}
         if "vevent" in ib.attrs["class"]:
             dtstartTag = ib.find("span", attrs={"class": "dtstart"}, recursive=True)
             if dtstartTag:
                 dtstart, l = self.__getTextAndLinksRecursive(dtstartTag)
-                microformats["dtstart"] = dtstart
-                self.analytics.numTopicsWithDtstart += 1
+                dtstart_datetime = parse_microformat(dtstart)
+                if dtstart_datetime:
+                    microformats["dtstart"] = dtstart_datetime
+                    self.analytics.numTopicsWithDtstart += 1
             
             dtendTag = ib.find("span", attrs={"class": "dtend"}, recursive=True)
             if dtendTag:
                 dtend, l = self.__getTextAndLinksRecursive(dtendTag)
-                microformats["dtend"] = dtend
-                self.analytics.numTopicsWithDtend += 1
+                dtend_datetime = parse_microformat(dtend)
+                if dtend_datetime:
+                    microformats["dtend"] = dtend_datetime
+                    self.analytics.numTopicsWithDtend += 1
         
-        dateRows = {}
-        dateRows |= extractRowForLabelIfExists(labels, "Date")
-        dateRows |= extractRowForLabelIfExists(labels, "Date(s)")
-        dateRows |= extractRowForLabelIfExists(labels, "First outbreak")
-        dateRows |= extractRowForLabelIfExists(labels, "Arrival Date")
-        dateRows |= extractRowForLabelIfExists(labels, "Duration")
-        dateRows |= extractRowForLabelIfExists(labels, "Start Date")
-        dateRows |= extractRowForLabelIfExists(labels, "End Date")
+        # Date tags seperated into 2 groups.
+        # Both can have spans from start to end, but have different single date meaning.
+        date_rows_beginnings = {}
+        date_rows_beginnings |= extractRowForLabelIfExists(labels, "Date")
+        date_rows_beginnings |= extractRowForLabelIfExists(labels, "Date(s)")
+        date_rows_beginnings |= extractRowForLabelIfExists(labels, "First outbreak")
+        date_rows_beginnings |= extractRowForLabelIfExists(labels, "Arrival Date")
+        date_rows_beginnings |= extractRowForLabelIfExists(labels, "Start Date")
+
+        date_rows_endings = {}
+        date_rows_endings |= extractRowForLabelIfExists(labels, "End Date")
+        date_rows_endings |= extractRowForLabelIfExists(labels, "Duration")
 
         timeRows = {}
         timeRows |= extractRowForLabelIfExists(labels, "Time")
 
+        # Extract time
         hasTime, hasTimeSpan = False, False
         resRows = {}
         for label, ibRow in timeRows.items():
@@ -389,50 +424,59 @@ class Extraction:
             else:
                 self.timeParseErrorLogger.info("\"" + value + "\"")
                 self.analytics.numTopicsWithTimeParseError += 1
-            
-        for label, ibRow in dateRows.items():
-            value = re.sub(r"[–−]", r"-", ibRow.value)
 
-            # filter out some frequent unwanted values
-            asOf = re.search(r"[aA]s of", value)
-            if not asOf and value not in ["Wuhan, Hubei, China", "Wuhan, China"]:
+        # Extract date(span) and combine with time
+        date_or_beginning = False
+        ending = False
+        for i, date_rows in enumerate([date_rows_beginnings, date_rows_endings]):
+            is_ending = bool(i)
+            row_type = "end" if is_ending else "start"
 
-                timeDict = DateTimeParser.parseTimes(value)
+            for label, ibRow in date_rows.items():
+                value = re.sub(r"[–−]", r"-", ibRow.value)
 
-                if timeDict:
-                    hasTime = True
-                    spl = timeDict["start"].split(":")
-                    startTime = [int(spl[0]), int(spl[1])]
-                    if "end" in timeDict:
-                        hasTimeSpan = True
-                        spl = timeDict["end"].split(":")
-                        endTime = [int(spl[0]), int(spl[1])]
+                # filter out some frequent values which are no dates
+                asOf = re.search(r"[aA]s of", value)
+                if not asOf and value not in ["Wuhan, Hubei, China", "Wuhan, China"]:
+
+                    timeDict = DateTimeParser.parseTimes(value)
+
+                    if timeDict:
+                        hasTime = True
+                        spl = timeDict["start"].split(":")
+                        startTime = [int(spl[0]), int(spl[1])]
+                        if "end" in timeDict:
+                            hasTimeSpan = True
+                            spl = timeDict["end"].split(":")
+                            endTime = [int(spl[0]), int(spl[1])]
+                        else:
+                            endTime = None
+                    # TODO use time!?
+
+                    dateDict = DateTimeParser.parseDates(value)
+                    
+                    if "date" in dateDict:
+                        date = dateDict["date"]
+                        self.analytics.numTopicsWithDate += 1
+                        until, ongoing = None, False
+                        if "until" in dateDict:
+                            until = dateDict["until"]
+                            self.analytics.numTopicsWithDateSpan += 1
+                        elif "ongoing" in dateDict and dateDict["ongoing"] == True:
+                            ongoing = True
+                            self.analytics.numTopicsWithDateOngoing += 1
+
+                        if timeDict and "tz" in timeDict:
+                            timezone = timeDict["tz"]
+                        else:
+                            timezone = None
+                        dateRow = InfoboxRowDate(
+                            ibRow.label, ibRow.value, ibRow.valueLinks, 
+                            date, until, ongoing, timezone, row_type)
+                        resRows[label] = dateRow
                     else:
-                        endTime = None
-
-                dateDict = DateTimeParser.parseDates(value)
-                
-                if "date" in dateDict:
-                    date = dateDict["date"]
-                    self.analytics.numTopicsWithDate += 1
-                    until, ongoing = None, False
-                    if "until" in dateDict:
-                        until = dateDict["until"]
-                        self.analytics.numTopicsWithDateSpan += 1
-                    elif "ongoing" in dateDict and dateDict["ongoing"] == True:
-                        ongoing = True
-                        self.analytics.numTopicsWithDateOngoing += 1
-
-                    if timeDict and "tz" in timeDict:
-                        timezone = timeDict["tz"]
-                    else:
-                        timezone = None
-                    dateRow = InfoboxRowDate(
-                        ibRow.label, ibRow.value, ibRow.valueLinks, date, until, ongoing, timezone)
-                    resRows[label] = dateRow
-                else:
-                    self.dateParseErrorLogger.info("\"" + value + "\"")
-                    self.analytics.numTopicsWithDateParseError += 1
+                        self.dateParseErrorLogger.info("\"" + value + "\"")
+                        self.analytics.numTopicsWithDateParseError += 1
         
         if hasTime:
             self.analytics.numTopicsWithTime += 1
@@ -443,14 +487,16 @@ class Extraction:
         
         
     
-    def __parseInfobox(self, ib, templates, topicFlag=False) -> Tuple[
+    def __parseInfobox(self, ib, templates, topicFlag=False, get_linked_articles=False) -> Tuple[
             Dict[str, InfoboxRow],
-            Dict[str, str] ]:
+            Dict[str, datetime.datetime],
+            Optional[List[float]]
+        ]:
         tib = [t for t in templates if re.match("template:infobox", t.lower())]
         infoboxRows = {}
 
         # extract Locations
-        locs = self.__getLocationFromInfobox(ib, templates, tib, topicFlag)
+        locs, coordinates = self.__getLocationFromInfobox(ib, templates, tib, topicFlag, get_linked_articles)
         infoboxRows |= locs
 
         # extract Dates and Times
@@ -466,7 +512,7 @@ class Extraction:
             if rows:
                 infoboxRows |= rows
         
-        return infoboxRows, microformats
+        return infoboxRows, microformats, coordinates
 
     def __testIfUrlIsArticle(self, url:str) -> bool:
         # negative tests
@@ -480,7 +526,7 @@ class Extraction:
         return False
     
 
-    def __getArticleFromUrlIfArticle(self, url, topicFlag=False) -> Article:
+    def __getArticleFromUrlIfArticle(self, url, topicFlag=False, get_linked_articles=False) -> Article:
         # return none if url is not an article
         if not self.__testIfUrlIsArticle(url):
             return None
@@ -533,12 +579,14 @@ class Extraction:
         templates = set(re.findall(r"Template:\w+", str(statsJson["wgPageParseReport"]["limitreport"]["timingprofile"])))
 
         # parse the infobox
-        ibRows, microformats = {}, {}
+        ibRows, microformats, ib_coordinates = {}, {}, None
         if ib:
-            ibRows, microformats = self.__parseInfobox(ib, templates, topicFlag)
+            ibRows, microformats, ib_coordinates = self.__parseInfobox(
+                ib, templates, topicFlag, get_linked_articles
+            )
         
         # check if page is a location
-        locFlag = self.__testIfPageIsLocation(p, ib, coord, templates)
+        locFlag = self.__testIfPageIsLocation(p, ib, templates)
         if locFlag:
             self.analytics.numArticlesWithLocFlag += 1
         
@@ -604,15 +652,15 @@ class Extraction:
         if articleWithWkt:
             self.analytics.numArticlesWithWkt += 1
         
-        return Article(graphUrl, locFlag, coord, str(ib), ibRows, str(articleGraphTag.string), templates, 
+        return Article(graphUrl, locFlag, coord, str(ib), ibRows, ib_coordinates, str(articleGraphTag.string), templates, 
                 wiki_wkts, wikidataEntityURI, wd_one_hop_g, parent_locations_and_relation, 
                 entity_label_dict, microformats, datePublished, dateModified, name, headline)
 
-    def __getArticles(self, wikiArticleLinks):
+    def __getArticles(self, wikiArticleLinks, get_linked_articles=False) -> List[Article]:
         articles = []
         for l in wikiArticleLinks:
             url = l.href
-            articles.append(self.__getArticleFromUrlIfArticle(url, topicFlag=False))
+            articles.append(self.__getArticleFromUrlIfArticle(url, topicFlag=False, get_linked_articles=get_linked_articles))
             self.analytics.numArticles += 1
         
         return articles
@@ -620,7 +668,7 @@ class Extraction:
     def __parseTopic(self, t, parentTopics, date:datetime.date, num_topics:int, sourceUrl:str) -> list[Topic]:
         if(isinstance(t, NavigableString)):
             # when parent is no link, but initial Topic without Link
-            return [Topic(t, t, None, None, date, num_topics, sourceUrl)]
+            return [Topic(t, t, None, [], date, num_topics, sourceUrl)]
         else:
             aList = t.find_all("a", recursive=False)
             # add italic topics
@@ -632,7 +680,7 @@ class Extraction:
                 # rare case when non inital topics have no link (14.1.2022 #4)
                 text, _ = self.__getTextAndLinksRecursive(t.contents[0])
                 text = text.strip("\n ")
-                return [Topic(text, text, None, None, date, num_topics, sourceUrl)]
+                return [Topic(text, text, None, [], date, num_topics, sourceUrl)]
             else:
                 topics = []
                 for a in aList:
@@ -644,7 +692,7 @@ class Extraction:
                         href = "https://en.wikipedia.org" + href
                     
                     # article == None if href is redlink like on 27.1.2022
-                    article = self.__getArticleFromUrlIfArticle(href, topicFlag=True)
+                    article = self.__getArticleFromUrlIfArticle(href, topicFlag=True, get_linked_articles=True)
                     
                     # index of the topic
                     tnum = num_topics + len(topics)
@@ -756,29 +804,21 @@ class Extraction:
                 # two versions of headings are used (afaik):
                 # <p><b>Health and environment</b></p>
                 # <div class="current-events-content-heading" role="heading">Armed conflicts and attacks</div>
-                def isInitalTopic(tag:Tag):
+                def is_category(tag:Tag):
                     return (tag.name == "p" and len(tag.attrs) == 0) \
                         or (tag.name == "div" and tag.has_attr('class') \
                         and "current-events-content-heading" in tag.attrs["class"])
-                initalTopics = description.find_all(isInitalTopic, recursive=False)
-                # print("InitialTopics:")
-                # for i,x in enumerate(initalTopics):
-                #     print(i, str(x)[:200])
+                categories = description.find_all(is_category, recursive=False)
                 tnum = 0
                 evnum = 0
-                for i in initalTopics:
-                    iText, _ = self.__getTextAndLinksRecursive(i)
-                    iTopic = Topic(iText, iText, None, None, date, tnum, sourceUrl)
-                    self.outputData.storeTopic(iTopic)
-                    tnum += 1
-                    #print("iTopic:", iText)
-
+                for i in categories:
+                    category, _ = self.__getTextAndLinksRecursive(i)
                     eventList = i.find_next_sibling("ul")
 
                     # extract events under their topics iteratively
                     s = []  # stack with [parentTopics, li]
                     lis = eventList.find_all("li", recursive=False)
-                    s += [[[iTopic], li] for li in lis[::-1]]
+                    s += [[[], li] for li in lis[::-1]]
                     while(len(s) > 0):
                         # print()
                         # for i,x in enumerate(s):
@@ -796,7 +836,7 @@ class Extraction:
                             #print("\n", text)
                             wikiArticleLinks = [l for l in links if self.__testIfUrlIsArticle(l.href)]
 
-                            articles = self.__getArticles(wikiArticleLinks)
+                            articles = self.__getArticles(wikiArticleLinks, get_linked_articles=True)
                             
                             sentences = self.__splitEventTextIntoSentences(text, wikiArticleLinks, articles)
                             
@@ -805,7 +845,7 @@ class Extraction:
                                 self.analytics.numEventsWithType += 1
 
                             e = Event(x, parentTopics, text, sourceUrl, date, sentences, 
-                                    sourceLinks, sourceText, eventTypes, evnum) 
+                                    sourceLinks, sourceText, eventTypes, evnum, category) 
 
                             self.analytics.numEvents += 1
                             self.outputData.storeEvent(e)
