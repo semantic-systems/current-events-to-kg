@@ -509,8 +509,6 @@ if __name__ == "__main__":
 
     force = True
 
-    #TODO remove Paths when uploading
-
     # m = EventMap(basedir, "March_2022_base.jsonld")
     # m.loadMonthData(force, True)
     # m.createMonthMap(force, label="sum_log")
