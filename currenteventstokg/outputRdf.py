@@ -586,7 +586,8 @@ class OutputRdf:
     
     def exists(self, file_prefix:str):
         for graph_name in self.graphs.keys():
-            if not exists(file_prefix + "_" + graph_name + ".jsonld"):
+            filename = file_prefix + "_" + graph_name + ".jsonld"
+            if not exists(self.outputFolder / filename):
                 return False
         return True
         
