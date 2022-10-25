@@ -13,19 +13,25 @@ import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
 
+from .current_events_diagram import CurrentEventDiagram
+from .current_events_graph import CurrentEventsGraph
+
 class NumEventsPerMonthAverageDiagram(CurrentEventDiagram):
     def __init__(self, basedir, graph_names:List[str]):
         super().__init__(basedir, "event_num_per_month_avg", graph_names)
 
     def createDiagram(self, force=True):
         q = """
-            PREFIX coy: <https://schema.coypu.org/global#>
+            PREFIX coy_ev: <https://schema.coypu.org/events#>
+            PREFIX gn: <https://www.geonames.org/ontology#>
+            PREFIX nif: <http://persistence.uni-leipzig.org/nlp2rdf/ontologies/nif-core#>
+            PREFIX crm: <http://www.cidoc-crm.org/cidoc-crm/>
             SELECT DISTINCT ?month (COUNT(?e) as ?num) WHERE{
-                ?t  a coy:Topic;
-                    (coy:hasParentTopic)*/coy:hasArticle <https://en.wikipedia.org/wiki/2022_Russian_invasion_of_Ukraine>.
-                ?e  coy:hasParentTopic ?t;
-                    a coy:Event;
-                    coy:hasDate ?date.
+                ?e  (crm:P117_occurs_during)*/gn:wikipediaArticle <https://en.wikipedia.org/wiki/2022_Russian_invasion_of_Ukraine>;
+                    a crm:E5_Event;
+                    crm:P1_is_identified_by ?c;
+                    coy_ev:hasMentionDate ?date.
+                ?c a nif:Context.
                 BIND(MONTH(?date) as ?month).
             } GROUP BY ?month"""
 
@@ -68,41 +74,45 @@ class NumEventsPerMonthAverageDiagram(CurrentEventDiagram):
 
 class NumEventsPerMonthDiagram(CurrentEventDiagram):
     def __init__(self, basedir, graph_names:List[str]):
-        super().__init__(basedir, "event_num_per_month", graph_names)
+        super().__init__("event_num_per_month", graph_names)
 
     def createDiagram(self, force=True):
 
         q = """
-            PREFIX coy: <https://schema.coypu.org/global#>
+            PREFIX coy_ev: <https://schema.coypu.org/events#>
+            PREFIX gn: <https://www.geonames.org/ontology#>
+            PREFIX crm: <http://www.cidoc-crm.org/cidoc-crm/>
+            PREFIX nif: <http://persistence.uni-leipzig.org/nlp2rdf/ontologies/nif-core#>
             SELECT DISTINCT ?year ?month (COUNT(?e) as ?num) WHERE{
-                ?t  a coy:Topic;
-                    (coy:hasParentTopic)*/coy:hasArticle <https://en.wikipedia.org/wiki/2022_Russian_invasion_of_Ukraine>.
-                ?e  coy:hasParentTopic ?t;
-                    a coy:Event;
-                    coy:hasDate ?date.
+                ?e  (crm:P117_occurs_during)*/gn:wikipediaArticle <https://en.wikipedia.org/wiki/2022_Russian_invasion_of_Ukraine>;
+                    a crm:E5_Event;
+                    crm:P1_is_identified_by ?c;
+                    coy_ev:hasMentionDate ?date.
+                ?c a nif:Context.
                 BIND(MONTH(?date) as ?month).
                 BIND(YEAR(?date) as ?year).
             } GROUP BY ?year ?month"""
 
         print(q)
-        fpaths = [basedir / f"{gn}_base.jsonld" for gn in self.graph_names]
-        fpaths = [
-            Path("../current-events-to-kg/dataset/February_2022_base.jsonld"), 
-            Path("../current-events-to-kg/dataset/March_2022_base.jsonld")
-        ]
-        n = CurrentEventsGraph(filepaths=fpaths)
-        res = n.query(q)
+        # fpaths = [basedir / f"{gn}_base.jsonld" for gn in self.graph_names]
+        # fpaths = [
+        #     Path("../current-events-to-kg/dataset/February_2022_base.jsonld"), 
+        #     Path("../current-events-to-kg/dataset/March_2022_base.jsonld")
+        # ]
+        # n = CurrentEventsGraph(filepaths=fpaths)
+        # res = n.query(q)
+        res_list = self.graph.query(q)
 
         data = {}
+        for res in res_list:
+            for row in res:
+                month = int(row["month"])
+                year = int(row["year"])
+                num = int(row["num"])
 
-        for row in res:
-            num = int(row.num)
-            month = int(row.month)
-            year = int(row.year)
-
-            if year not in data:
-                data[year] = np.full(12, np.nan)
-            data[year][month-1] = num
+                if year not in data:
+                    data[year] = np.full(12, np.nan)
+                data[year][month-1] = num
         
         fig = self.createPlot(data)
         fig.savefig(
@@ -144,7 +154,6 @@ if __name__ == "__main__":
     basedir, _ = split(abspath(__file__))
     basedir = Path(basedir)
     m = ["February_2022", "March_2022", "April_2022", "May_2022", "June_2022", "July_2022", "August_2022"]
-    #m = ["May_2022"]
 
     force = False
 

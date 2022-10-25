@@ -12,6 +12,22 @@ from time import time
 from abc import ABC, abstractmethod
 from currenteventstokg import currenteventstokg_module_dir
 from multiprocessing import Pool
+from currenteventstokg.outputRdf import NIF, COY, CEV, WGS, GEO, WD, CRM, GN, SCHEMA, DCTERMS
+
+
+
+def add_prefixes(g:Graph):
+    g.namespace_manager.bind('nif', NIF)
+    g.namespace_manager.bind('coy', COY)
+    g.namespace_manager.bind('coy_ev', CEV)
+    g.namespace_manager.bind('wgs', WGS)
+    g.namespace_manager.bind('geo', GEO)
+    g.namespace_manager.bind('wd', WD)
+    g.namespace_manager.bind('crm', CRM)
+    g.namespace_manager.bind('gn', GN)
+    g.namespace_manager.bind('schema', SCHEMA)
+    g.namespace_manager.bind('dcterms', DCTERMS)
+
 
 class CurrentEventsGraphABC(ABC):
     @abstractmethod
@@ -36,6 +52,8 @@ class CurrentEventsGraph(CurrentEventsGraphABC):
                 print(f"Parsing {graph_module}")
                 g.parse(graph_module)
         
+        add_prefixes(g)
+        
         self.g = g
     
     def query(self, q) -> rdflib.query.Result:
@@ -52,6 +70,8 @@ def f(graph_modules, q):
     for graph_module in graph_modules:
         print(f"Parse {graph_module}")
         g.parse(graph_module)
+    
+    add_prefixes(g)
 
     print(f"Querying...")
     res = g.query(q)

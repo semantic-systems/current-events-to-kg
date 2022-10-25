@@ -13,18 +13,12 @@ from currenteventstokg.etc import month2int, months
 
 from .current_events_graph import CurrentEventsGraphSplit, CurrentEventsGraphABC
 
-
 class CurrentEventDiagram():
     def __init__(self, sub_dir_name:str, graph_names:List[str], graph_modules=["base"], graph_class:CurrentEventsGraphABC=CurrentEventsGraphSplit):
         self.graph_names = graph_names # need to be sorted with first one first!
         self.graph_class = graph_class
-    
-        self.start_month = month2int[self.graph_names[0].split("_")[0]]
-        self.end_month = month2int[self.graph_names[-1].split("_")[0]]
-        self.start_year = int(self.graph_names[0].split("_")[1])
-        self.end_year = int(self.graph_names[-1].split("_")[1])
 
-        self.filename = f"{self.start_month}_{self.start_year}_{self.end_month}_{self.end_year}"
+        self.filename = f"{self.graph_names[0]}_{self.graph_names[-1]}"
 
         self.cache_dir = currenteventstokg_module_dir / "cache" / sub_dir_name
         makedirs(self.cache_dir, exist_ok=True)

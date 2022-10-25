@@ -19,7 +19,8 @@ import igraph
 import random
 import numpy as np
 import datetime
-from currenteventstokg.etc import month2int
+from currenteventstokg import currenteventstokg_module_dir
+
 
 
 def querySparql(query:str, query_name:str, cache_dir:Path, force:bool=False):
@@ -404,21 +405,37 @@ class TopicGraphDiagram:
     
     def _queryTopicsArticleDate(self, force:bool=False):
         q_template = Template("""
-            PREFIX n: <https://schema.coypu.org/global#>
+            PREFIX coy_ev: <https://schema.coypu.org/events#>
+            PREFIX schema: <https://schema.org/>
+            PREFIX gn: <https://www.geonames.org/ontology#>
+            PREFIX crm: <http://www.cidoc-crm.org/cidoc-crm/>
+            PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+            
             SELECT DISTINCT ?pt ?t ?pl ?l ?a_date (MIN(?date) as ?date) $from_string WHERE{
-                ?pt a n:Topic;
-                    (n:hasParentTopic*)/n:hasArticle <https://en.wikipedia.org/wiki/2022_Russian_invasion_of_Ukraine> ;
-                    n:hasArticle [
-                        n:hasName ?pl ];
-                    n:hasUsageDate ?date.
-                ?t n:hasParentTopic ?pt;
-                    n:hasArticle [
-                        n:hasName ?l ];
-                    n:hasUsageDate ?date.
+                ?pt a crm:E5_Event;
+                    (crm:P117_occurs_during*)/gn:wikipediaArticle <https://en.wikipedia.org/wiki/2022_Russian_invasion_of_Ukraine> ;
+                    coy_ev:hasMentionDate ?date.
+                ?t crm:P117_occurs_during ?pt;
+                   coy_ev:hasMentionDate ?date.
+
+                { ?t gn:wikipediaArticle [ schema:name ?l ]. } 
+                UNION {
+                    ?t crm:P1_is_identified_by ?l.
+                    FILTER(DATATYPE(?l) = xsd:string).
+                    FILTER NOT EXISTS{?t gn:wikipediaArticle ?a.}
+                }
+
+                { ?pt gn:wikipediaArticle [ schema:name ?pl ]. } 
+                UNION 
+                {
+                    ?pt crm:P1_is_identified_by ?pl.
+                    FILTER(DATATYPE(?pl) = xsd:string).
+                    FILTER NOT EXISTS{?pt gn:wikipediaArticle ?pa.}
+                }
                     
                 OPTIONAL{
-                    ?t n:hasInfoboxRow ?ir.
-                    ?ir n:hasParsedDate ?a_date.
+                    ?t crm:P4_has_time-span ?ts.
+                    ?ts coy_ev:hasDate ?a_date.
                 }
                 
             } GROUP BY ?pt ?t ?pl ?l ?a_date""")
@@ -626,15 +643,13 @@ class TopicGraphDiagram:
         return res
 
 if __name__ == "__main__":
-    basedir, _ = split(abspath(__file__))
-    basedir = Path(basedir)
     m = ["February_2022", "March_2022", "April_2022", "May_2022", "June_2022", "July_2022", "August_2022"]
-    #m = ["May_2022"]
+    #m = ["February_2022"]
 
     force = True
 
-    # TopicGraphDiagram(basedir, m[0:1]).createDiagram(force)
-    TopicGraphDiagram(basedir, m).createGif(force, "kk", True)
-    # TopicGraphDiagram(basedir, "March_2022").createGifTest()
-    # TopicGraphDiagram(basedir, "March_2022").createiGraphGif()
-    # TopicGraphDiagram(basedir, m).createPyvisGraph(force)
+    # TopicGraphDiagram(currenteventstokg_module_dir, m[0:1]).createDiagram(force)
+    TopicGraphDiagram(currenteventstokg_module_dir, m).createGif(force, "kk", True)
+    # TopicGraphDiagram(currenteventstokg_module_dir, "March_2022").createGifTest()
+    # TopicGraphDiagram(currenteventstokg_module_dir, "March_2022").createiGraphGif()
+    # TopicGraphDiagram(currenteventstokg_module_dir, m).createPyvisGraph(force)

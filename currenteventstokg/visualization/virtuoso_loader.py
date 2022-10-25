@@ -8,12 +8,9 @@ from os.path import abspath, exists, split
 from pathlib import Path
 
 from ..jsonld2ttl import jsonld2ttl
+from currenteventstokg import currenteventstokg_module_dir
 
-
-basedir, _ = split(abspath(__file__))
-basedir = Path(basedir)
-
-ttl_dataset_dir = basedir / 'dataset_ttl'
+ttl_dataset_dir = currenteventstokg_module_dir / 'dataset_ttl'
 
 def loadMonth(month_year:str, virtuoso_dir:Path, extensions=["osm"]): #, "ohg", "raw"
     create_script_path = str(virtuoso_dir / "create_graph.sh")
@@ -22,7 +19,7 @@ def loadMonth(month_year:str, virtuoso_dir:Path, extensions=["osm"]): #, "ohg", 
 
      # create ttl file for importing into virtuoso
     print("Create .ttl file...")
-    ttl_file_name = jsonld2ttl(basedir, jsonld_base_graph_file_name, extensions)
+    ttl_file_name = jsonld2ttl(currenteventstokg_module_dir, jsonld_base_graph_file_name, extensions)
 
     print(f"Move {ttl_file_name} to virtuoso...")
     cmd = f"cp {str(ttl_dataset_dir / ttl_file_name)} {str(ttl_dir)}"
@@ -46,7 +43,7 @@ def bulkLoadMonths(months:str, virtuoso_dir:Path, num_processes:int, extensions=
 
         # create ttl file for importing into virtuoso
         print("Create .ttl file...")
-        ttl_file_name = jsonld2ttl(basedir, jsonld_base_graph_file_name, extensions)
+        ttl_file_name = jsonld2ttl(currenteventstokg_module_dir, jsonld_base_graph_file_name, extensions)
         ttl_files.append(ttl_file_name)
 
         print(f"Move {ttl_file_name} to virtuoso...")

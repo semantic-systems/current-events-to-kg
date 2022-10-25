@@ -57,19 +57,23 @@ class NumCompanyEventsPerMonthDiagram(CurrentEventBarChart, Sleeper):
             res_list = self.__loadJson(qres_cache_path)
         else:
             q = """
-                PREFIX coy: <https://schema.coypu.org/global#>
                 PREFIX wdt: <http://www.wikidata.org/prop/direct/>
-                PREFIX nif: <http://persistence.uni-leipzig.org/nlp2rdf/ontologies/nif-core#>
                 SELECT DISTINCT ?year ?month ?wd ?type ?e ?text ?link_text WHERE{
-                    ?e  a coy:Event;
-                        coy:hasDate ?date;
+                    ?e  a crm:E5_Event;
+                        coy_ev:hasMentionDate ?date;
+                        crm:P1_is_identified_by ?c.
+ 
+                    ?c  a nif:Context;
                         nif:isString ?text;
-                        coy:hasSentence/coy:hasLink ?l.
-                    ?l  coy:hasReference ?a;
-                        coy:hasText ?link_text.
-                    ?a  a coy:WikipediaArticle;
-                        owl:sameAs ?wd.
+                        nif:subString/nif:subString ?l.
+
+                    ?l  nif:anchorOf ?link_text;
+                        gn:wikipediaArticle ?a.
+
+                    ?a  owl:sameAs ?wd.
+                    
                     ?wd wdt:P31 ?type.
+
                     BIND(MONTH(?date) as ?month).
                     BIND(YEAR(?date) as ?year).
                 } ORDER BY ?e"""
@@ -142,11 +146,16 @@ class NumCompanyEventsPerMonthDiagram(CurrentEventBarChart, Sleeper):
     def countCompanies(self, force=False):
         q = """
         PREFIX coy: <https://schema.coypu.org/global#>
+        PREFIX crm: <http://www.cidoc-crm.org/cidoc-crm/>
+        PREFIX gn: <https://www.geonames.org/ontology#>
+        PREFIX nif: <http://persistence.uni-leipzig.org/nlp2rdf/ontologies/nif-core#>
         PREFIX wdt: <http://www.wikidata.org/prop/direct/>
         SELECT DISTINCT ?wd ?type WHERE{
-            ?e  a coy:Event;
-                coy:hasSentence/coy:hasLink/coy:hasReference ?a.
-            ?a  a coy:WikipediaArticle;
+            ?e  a crm:E5_Event;
+                crm:P1_is_identified_by ?c.
+            ?c  a nif:Context;
+                nif:subString/nif:subString/gn:wikipediaArticle ?a.
+            ?a  a gn:WikipediaArticle;
                 owl:sameAs ?wd.
             ?wd wdt:P31 ?type.
         }"""

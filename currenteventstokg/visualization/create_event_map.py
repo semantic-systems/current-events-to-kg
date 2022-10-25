@@ -17,6 +17,7 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 import pandas as pd
+from currenteventstokg import currenteventstokg_module_dir
 from geopandas import (GeoDataFrame, GeoSeries, datasets, read_file,
                        read_parquet)
 from rdflib import RDF, RDFS, XSD, BNode, Graph, Literal, Namespace, URIRef
@@ -113,12 +114,12 @@ class EventMap:
     def loadMonthData(self, force, no_ua=True):
         cache_path =  self.cache_dir / f"{self.month_str}_{self.year}.parquet"
         if exists(cache_path) and not force:
+            print("Loading data cache", cache_path)
             gdf = read_parquet(cache_path)
         else:
             start_t_month = time()
             data, geometry = self._queryMonth(self.year, self.month, force)
             print(f"{(time() - start_t_month)/60}min for querying {self.month_str}_{self.year}")
-
             gdf = GeoDataFrame(data=data, geometry=geometry)
             #print("Columns:", gdf.columns)
 
@@ -285,6 +286,7 @@ class EventMap:
         #ua_geo = GeoSeries(ua_bounds)
         #ua_geo.boundary.plot(ax=ax)
 
+        print("pp", gdf.columns)
 
 
         if vmax == None:
@@ -404,22 +406,27 @@ class EventMap:
 
             start_t_day = time()
             q = Template("""
-            PREFIX n: <https://schema.coypu.org/global#>
-            SELECT DISTINCT ?e ?s ?l ?wd_wkt FROM <${month}_${year}> WHERE{
-                ?t a n:Topic;
-                    (n:hasParentTopic*)/n:hasArticle <https://en.wikipedia.org/wiki/2022_Russian_invasion_of_Ukraine>.
-                ?e n:hasParentTopic ?t;
-                    a n:Event;
-                    n:hasDate ?date;
-                    n:hasSentence ?s.
-                ?s n:hasLink ?l.
-                ?l n:hasReference ?a.
+PREFIX coy: <https://schema.coypu.org/global#>
+PREFIX coy_ev: <https://schema.coypu.org/events#>
+PREFIX crm: <http://www.cidoc-crm.org/cidoc-crm/>
+PREFIX gn: <https://www.geonames.org/ontology#>
+PREFIX nif: <http://persistence.uni-leipzig.org/nlp2rdf/ontologies/nif-core#>
+SELECT DISTINCT ?e ?wd_wkt FROM <${month}_${year}> WHERE{
+    ?e  a crm:E5_Event;
+        crm:P117_occurs_during+/gn:wikipediaArticle <https://en.wikipedia.org/wiki/2022_Russian_invasion_of_Ukraine>;
+        coy_ev:hasMentionDate ?date;
+        crm:P1_is_identified_by ?c.
+    ?c  nif:subString/nif:subString/gn:wikipediaArticle ?a.
 
-                ?a a n:Location;
-                    n:hasOsmElementFromWikidata ?wd_osm.
-                ?wd_osm n:hasOsmWkt ?wd_wkt.
-                FILTER(DAY(?date) = $day)
-            }""").substitute(day=day, month=months[month-1], year=year)
+    {?a  owl:sameAs/coy_ev:hasOsmElement ?osm.}
+    UNION
+    {?a  coy_ev:hasOsmElement ?osm.}
+
+    ?osm coy_ev:hasOsmWkt ?wd_wkt.
+    ?p  a crm:E53_Place;
+        gn:wikipediaArticle ?a.
+    FILTER(DAY(?date) = $day)
+}""").substitute(day=day, month=months[month-1], year=year)
 
             sparql = SPARQLWrapper("http://localhost:8890/sparql")
 
@@ -438,14 +445,12 @@ class EventMap:
             res = res.convert()
             print(f"{time() - start_t}sec")               
 
-            data_day = {}
-            
+
             # convert to data dict + geometry
+            data_day = {}
             print("rowcount:", len(res["results"]["bindings"]))
             for row in res["results"]["bindings"]:
                 wd_wkt = str(row["wd_wkt"]["value"])
-
-                #date = datetime(year, month, day)
 
                 # update wkt2id & set current_wkt_id
                 if wd_wkt not in wkt2id:
@@ -497,24 +502,23 @@ def bulk_month_giffer(basedir:Path, base_files:List[str], force=False, sync_vmax
 
 
 if __name__ == "__main__":
-    basedir, _ = split(abspath(__file__))
-    basedir = Path(basedir)
-
     base_files = [
         "February_2022_base.jsonld", "March_2022_base.jsonld", "April_2022_base.jsonld", 
         "May_2022_base.jsonld", "June_2022_base.jsonld", "July_2022_base.jsonld", 
         "August_2022_base.jsonld",
     ]
+    #base_files = ["February_2022_base.jsonld"]
     print(base_files)
 
     force = True
 
-    # m = EventMap(basedir, "March_2022_base.jsonld")
+    # m = EventMap(currenteventstokg_module_dir, "February_2022_base.jsonld")
     # m.loadMonthData(force, True)
-    # m.createMonthMap(force, label="sum_log")
 
-    # m = EventMap(basedir, "March_2022_base.jsonld").createDayMap(2)
-    # m = EventMap(basedir, "March_2022_base.jsonld").createMonthGif(30, force)
-    bulk_month_giffer(basedir, base_files, force, sync_vmax=True, label="sum_log", no_ua=True)
+    # m.createMonthMap(force, label="sum_log")
+    #m.createDayMap(29, force_query=force)
+    # m.createMonthGif(30, force)
+
+    bulk_month_giffer(currenteventstokg_module_dir, base_files, force, sync_vmax=True, label="sum_log", no_ua=True)
     
     
