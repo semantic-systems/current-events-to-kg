@@ -359,11 +359,13 @@ class OutputRdf:
             if article.infobox_coordinates:
                 self.__addCoordinates(base, place_uri, article.infobox_coordinates)
 
+        # add wikidata entity stuff
+        wd_entity_uri = URIRef(article.wikidata_entity)
         if len(article.wikidata_wkts) >= 1:
             for osm_element in article.wikidata_wkts:
-                self.__addOsmElement(article_uri, osm_element)
+                self.__addOsmElement(wd_entity_uri, osm_element)
         
-        base.add((article_uri, OWL.sameAs, URIRef(article.wikidata_entity)))
+        base.add((article_uri, OWL.sameAs, wd_entity_uri))
         ohg += article.wikidata_one_hop_graph
         
         # add labels of classes which entity is instance of (classes are URIs of wd:entity in 1hop graph)
