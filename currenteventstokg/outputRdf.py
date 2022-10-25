@@ -5,7 +5,7 @@ import hashlib
 import re
 from os import makedirs
 from os.path import exists
-from typing import overload
+from typing import overload, Tuple, Optional
 from urllib.parse import quote_plus
 
 from rdflib import (FOAF, OWL, RDF, RDFS, XSD, BNode, Graph, Literal,
@@ -162,7 +162,7 @@ class OutputRdf:
         if timezone:
             parts.append(f"t_{timezone}")
         suffix = quote_plus("_".join(parts))
-        uri = contexts_ns[suffix]
+        uri = timespan_ns[suffix]
         return uri
     
     
@@ -205,68 +205,7 @@ class OutputRdf:
         
         return place_uri
     
-
-    def __add_article_triples(self, article:Article) -> URIRef:
-        base = self.graphs["base"]
-        osm = self.graphs["osm"]
-        raw = self.graphs["raw"]
-        ohg = self.graphs["ohg"]
-
-        article_uri = self.__get_article_uri(article)
-    
-        base.add((article_uri, RDF.type, GN.WikipediaArticle))
-
-        if article.infobox:
-            raw.add((article_uri, CEV.hasInfobox, Literal(str(article.infobox), datatype=XSD.string)))
-        
-        if article.location_flag:
-            place_uri = self.__add_place(base, article)
-            base.add((place_uri, GN.wikipediaArticle, article_uri))
-
-            if article.coordinates:
-                self.__addCoordinates(base, place_uri, article.coordinates)
-            if article.infobox_coordinates:
-                self.__addCoordinates(base, place_uri, article.infobox_coordinates)
-
-        if len(article.wikidata_wkts) >= 1:
-            for osm_element in article.wikidata_wkts:
-                self.__addOsmElement(article_uri, osm_element)
-        
-        base.add((article_uri, OWL.sameAs, URIRef(article.wikidata_entity)))
-        ohg += article.wikidata_one_hop_graph
-        
-        # add labels of classes which entity is instance of (classes are URIs of wd:entity in 1hop graph)
-        for entityId, label in article.classes_with_labels.items():
-            ohg.add((URIRef(WD[entityId]), RDFS.label, Literal(str(label), datatype=XSD.string)))
-        
-        # add doc infos
-        if article.date_published:
-            base.add((article_uri, SCHEMA.datePublished, Literal(str(article.date_published), datatype=XSD.dateTime)))
-        if article.date_modified:
-            base.add((article_uri, SCHEMA.dateModified, Literal(str(article.date_modified), datatype=XSD.dateTime)))
-        if article.name:
-            base.add((article_uri, SCHEMA.name, Literal(str(article.name), datatype=XSD.string)))
-        if article.headline:
-            base.add((article_uri, SCHEMA.headline, Literal(str(article.headline), datatype=XSD.string)))
-        
-        date_rows = []
-        time_rows = []
-        loc_rows = []
-        for row in article.infobox_rows.values():
-            if isinstance(row, InfoboxRowTime):
-                time_rows.append(row)
-            elif isinstance(row, InfoboxRowLocation):
-                loc_rows.append(row)
-            elif isinstance(row, InfoboxRowDate):
-                date_rows.append(row)
-            
-        # add OSM elements of links texts from infoboxes "Location" values to the article
-        for row in loc_rows:
-            for l in row.valueLinks:
-                self.__addOsmElement(article_uri, row.valueLinks_wkts[l])
-
-        ## add timespan
-
+    def __add_timespan(self, graph:Graph, article:Article) -> URIRef:
         # slots
         date_or_beginning = None
         ending = None
@@ -280,8 +219,10 @@ class OutputRdf:
         # use microformats as date first
         if "dtstart" in article.microformats:
             date_or_beginning = article.microformats["dtstart"]
+            timespan_label += f"dtstart: {date_or_beginning}\n"
         if "dtend" in article.microformats:
             ending = article.microformats["dtend"]
+            timespan_label += f"dtend: {ending}\n"
         
         def has_time(dt:datetime.datetime) -> bool:
             t = dt.time()
@@ -289,6 +230,14 @@ class OutputRdf:
                 return True
             else:
                 return False
+        
+        date_rows = []
+        time_rows = []
+        for row in article.infobox_rows.values():
+            if isinstance(row, InfoboxRowTime):
+                time_rows.append(row)
+            elif isinstance(row, InfoboxRowDate):
+                date_rows.append(row)
 
         # fill slots if empty
         for row in date_rows:
@@ -367,31 +316,83 @@ class OutputRdf:
         # store date/time triples from slots
         if date_or_beginning or ending or ongoing or time or endtime:
             timespan_uri = self.__get_timespan_uri(date_or_beginning, ending, ongoing, time, endtime, timezone)
-            base.add((article_uri, CRM["P4_has_time-span"], timespan_uri))
-            base.add((timespan_uri, RDF.type, CRM["E52_Time-Span"]))
-            base.add((timespan_uri, RDFS.label, Literal(timespan_label, datatype=XSD.string)))
+            graph.add((timespan_uri, RDF.type, CRM["E52_Time-Span"]))
+            graph.add((timespan_uri, RDFS.label, Literal(timespan_label, datatype=XSD.string)))
 
             if date_or_beginning:
-                base.add((timespan_uri, CEV.hasDate, Literal(date_or_beginning.isoformat(), datatype=XSD.dateTime)))
+                graph.add((timespan_uri, CEV.hasDate, Literal(date_or_beginning.isoformat(), datatype=XSD.dateTime)))
             if ending:
-                base.add((timespan_uri, CEV.hasEndDate, Literal(ending.isoformat(), datatype=XSD.dateTime)))
+                graph.add((timespan_uri, CEV.hasEndDate, Literal(ending.isoformat(), datatype=XSD.dateTime)))
             elif ongoing:
-                base.add((timespan_uri, CEV.hasOngoingSpan, Literal("true", datatype=XSD.boolean)))
+                graph.add((timespan_uri, CEV.hasOngoingSpan, Literal("true", datatype=XSD.boolean)))
             if timezone:
-                base.add((timespan_uri, CEV.hasTimezone, Literal(timezone, datatype=XSD.string))) 
+                graph.add((timespan_uri, CEV.hasTimezone, Literal(timezone, datatype=XSD.string))) 
             if time:
-                base.add((timespan_uri, CEV.hasTime, Literal(time, datatype=XSD.time)))
+                graph.add((timespan_uri, CEV.hasTime, Literal(time, datatype=XSD.time)))
             if endtime:
-                base.add((timespan_uri, CEV.hasEndTime, Literal(endtime, datatype=XSD.time)))
+                graph.add((timespan_uri, CEV.hasEndTime, Literal(endtime, datatype=XSD.time)))
         
-        return article_uri
+        return timespan_uri
+    
+
+    def __add_article_triples(self, article:Article) -> Tuple[URIRef, Optional[URIRef]]:
+        base = self.graphs["base"]
+        osm = self.graphs["osm"]
+        raw = self.graphs["raw"]
+        ohg = self.graphs["ohg"]
+
+        article_uri = self.__get_article_uri(article)
+    
+        base.add((article_uri, RDF.type, GN.WikipediaArticle))
+
+        if article.infobox:
+            raw.add((article_uri, CEV.hasInfobox, Literal(str(article.infobox), datatype=XSD.string)))
+        
+        place_uri = None
+        if article.location_flag:
+            place_uri = self.__add_place(base, article)
+            base.add((place_uri, GN.wikipediaArticle, article_uri))
+
+            if article.coordinates:
+                self.__addCoordinates(base, place_uri, article.coordinates)
+            if article.infobox_coordinates:
+                self.__addCoordinates(base, place_uri, article.infobox_coordinates)
+
+        if len(article.wikidata_wkts) >= 1:
+            for osm_element in article.wikidata_wkts:
+                self.__addOsmElement(article_uri, osm_element)
+        
+        base.add((article_uri, OWL.sameAs, URIRef(article.wikidata_entity)))
+        ohg += article.wikidata_one_hop_graph
+        
+        # add labels of classes which entity is instance of (classes are URIs of wd:entity in 1hop graph)
+        for entityId, label in article.classes_with_labels.items():
+            ohg.add((URIRef(WD[entityId]), RDFS.label, Literal(str(label), datatype=XSD.string)))
+        
+        # add doc infos
+        if article.date_published:
+            base.add((article_uri, SCHEMA.datePublished, Literal(str(article.date_published), datatype=XSD.dateTime)))
+        if article.date_modified:
+            base.add((article_uri, SCHEMA.dateModified, Literal(str(article.date_modified), datatype=XSD.dateTime)))
+        if article.name:
+            base.add((article_uri, SCHEMA.name, Literal(str(article.name), datatype=XSD.string)))
+        if article.headline:
+            base.add((article_uri, SCHEMA.headline, Literal(str(article.headline), datatype=XSD.string)))
+        
+            
+        # add OSM elements of links texts from infoboxes "Location" values to the article
+        loc_rows = [row for row in article.infobox_rows.values() if isinstance(row, InfoboxRowLocation)]
+        for row in loc_rows:
+            for l in row.valueLinks:
+                self.__addOsmElement(article_uri, row.valueLinks_wkts[l])
+
+        return article_uri, place_uri
 
     
     def storeEvent(self, event: Event):
         base = self.graphs["base"]
         osm = self.graphs["osm"]
         raw = self.graphs["raw"]
-
 
         all_articles = []
         for s in event.sentences:
@@ -488,7 +489,7 @@ class OutputRdf:
                 
                 # article
                 if article:
-                    article_uri = self.__add_article_triples(article)
+                    article_uri, _ = self.__add_article_triples(article)
                     base.add((link_uri, GN.wikipediaArticle, article_uri))
 
                     # optimize searching for articles by wikidata entity
@@ -538,9 +539,18 @@ class OutputRdf:
                 base.add((e5_event_uri, CRM.P117_occurs_during, parent_e5))
         
         if topic.article:
-            article_uri = self.__add_article_triples(topic.article)
+            # add article
+            article_uri, place_uri = self.__add_article_triples(topic.article)
             base.add((e5_event_uri, GN.wikipediaArticle, article_uri))
-        
+
+            # connect place with event
+            if place_uri:
+                base.add((e5_event_uri, CRM["P7_took_place_at"], place_uri))
+            
+            # add timespan
+            timespan_uri = self.__add_timespan(base, topic.article)
+            base.add((e5_event_uri, CRM["P4_has_time-span"], timespan_uri))
+
 
     def __load_graph(self, filename:str, dest_graph:Graph):
         path = self.outputFolder / filename
