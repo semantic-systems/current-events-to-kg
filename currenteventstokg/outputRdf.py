@@ -205,7 +205,7 @@ class OutputRdf:
         
         return place_uri
     
-    def __add_timespan(self, graph:Graph, article:Article) -> URIRef:
+    def __add_timespan(self, graph:Graph, article:Article) -> Optional[URIRef]:
         # slots
         date_or_beginning = None
         ending = None
@@ -290,13 +290,13 @@ class OutputRdf:
             if date_or_beginning and ending and row.time and row.endtime:
                 # add time span to date span
                 if not has_time(date_or_beginning):
-                    date_or_beginning.hour = row_time_split[0]
-                    date_or_beginning.min = row_time_split[1]
+                    date_or_beginning = date_or_beginning.replace(
+                        hour=row_time_split[0], minute=row_time_split[1])
                     slot_filled = True
 
                 if not has_time(ending):
-                    ending.hour = row_endtime[0]
-                    ending.min = row_endtime[1]
+                    ending = ending.replace(
+                        hour=row_endtime[0], minute=row_endtime[1])
                     slot_filled = True
             else:
                 # add time triples extra
@@ -314,6 +314,7 @@ class OutputRdf:
                 timespan_label += f"{row.label}: {row.value}\n"
         
         # store date/time triples from slots
+        timespan_uri = None
         if date_or_beginning or ending or ongoing or time or endtime:
             timespan_uri = self.__get_timespan_uri(date_or_beginning, ending, ongoing, time, endtime, timezone)
             graph.add((timespan_uri, RDF.type, CRM["E52_Time-Span"]))
@@ -549,7 +550,8 @@ class OutputRdf:
             
             # add timespan
             timespan_uri = self.__add_timespan(base, topic.article)
-            base.add((e5_event_uri, CRM["P4_has_time-span"], timespan_uri))
+            if timespan_uri:
+                base.add((e5_event_uri, CRM["P4_has_time-span"], timespan_uri))
 
 
     def __load_graph(self, filename:str, dest_graph:Graph):

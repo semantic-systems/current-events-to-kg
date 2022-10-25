@@ -426,8 +426,6 @@ class Extraction:
                 self.analytics.numTopicsWithTimeParseError += 1
 
         # Extract date(span) and combine with time
-        date_or_beginning = False
-        ending = False
         for i, date_rows in enumerate([date_rows_beginnings, date_rows_endings]):
             is_ending = bool(i)
             row_type = "end" if is_ending else "start"
@@ -441,6 +439,7 @@ class Extraction:
 
                     timeDict = DateTimeParser.parseTimes(value)
 
+                    startTime, endTime = [], []
                     if timeDict:
                         hasTime = True
                         spl = timeDict["start"].split(":")
@@ -449,9 +448,6 @@ class Extraction:
                             hasTimeSpan = True
                             spl = timeDict["end"].split(":")
                             endTime = [int(spl[0]), int(spl[1])]
-                        else:
-                            endTime = None
-                    # TODO use time!?
 
                     dateDict = DateTimeParser.parseDates(value)
                     
@@ -470,6 +466,18 @@ class Extraction:
                             timezone = timeDict["tz"]
                         else:
                             timezone = None
+                        
+                        # combine dates and times
+                        if startTime and endTime:
+                            if until:
+                                date = date.replace(hour=startTime[0], minute=startTime[1])
+                                until = until.replace(hour=endTime[0], minute=endTime[1])
+                            elif not ongoing:
+                                date = date.replace(hour=startTime[0], minute=startTime[1])
+                                until = date.replace(hour=endTime[0], minute=endTime[1])
+                        elif startTime:
+                            date = date.replace(hour=startTime[0], minute=startTime[1])
+                            
                         dateRow = InfoboxRowDate(
                             ibRow.label, ibRow.value, ibRow.valueLinks, 
                             date, until, ongoing, timezone, row_type)
