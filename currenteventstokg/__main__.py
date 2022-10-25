@@ -168,7 +168,7 @@ if __name__ == '__main__':
         print("monthly_start_day must be smaller than monthly_end_day!")
         quit(1)
     
-    day_span = str(args.monthly_start_day) + "_" + str(args.monthly_start_day)
+    day_span = str(args.monthly_start_day) + "_" + str(args.monthly_end_day)
     
     combined = Analytics(basedir, args, str(Path(args.analytics_dir) / "combined_analytics"))
 
