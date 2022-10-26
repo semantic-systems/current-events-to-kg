@@ -4,10 +4,20 @@
 import re 
 from datetime import datetime
 from pprint import pprint
-from typing import Dict, Optional, Union
+from typing import Dict, Optional, Union, Tuple
 
 class DateTimeParser:
     dateRegexes = None
+
+    @classmethod
+    def __convert_12_to_24_format(cls, h:int, pm:bool) -> int:
+        if pm:
+            if h != 12:
+                return h + 12   
+        else:
+            if h == 12:
+                return 0
+        return h
     
     @classmethod
     def parseTimes(cls, value) -> Optional[Dict[str, str]]:
@@ -23,28 +33,24 @@ class DateTimeParser:
             r"(?P<he>\d\d?):(?P<me>\d\d)\s*((?P<ame>[aA].?[mM].?)|(?P<pme>[pP].?[mM].?))?" +
             r")?", value)
         if m:
-            time = {}
+            time_dict = {}
 
-            matchStr = m[0].strip("\n ")
             gd = m.groupdict()
-            hs,ms = int(gd["hs"]), int(gd["ms"])
-            ams, pms = gd["ams"], gd["pms"]
-            if pms:
-                hs = hs+12
-            time["start"] = str(hs).zfill(2) + ":" + str(ms).zfill(2)
+            for bound in ["start", "end"]:
+                x = bound[0]
+                h,m = gd["h"+x], gd["m"+x]
+                if h and m:
+                    h,m = int(h), int(m)
+                    am,pm = gd["am"+x], gd["pm"+x]
+                    if pm or am:
+                        h = cls.__convert_12_to_24_format(h, bool(pm))
+                    time_dict[bound] = str(h).zfill(2) + ":" + str(m).zfill(2)
             
-            he,me = gd["he"], gd["me"]
-            ame, pme = gd["ame"], gd["pme"]
-            end=None
-            if he and me:
-                he,me = int(he), int(me)
-                if pme:
-                    he = he + 12
-                time["end"] = str(he).zfill(2) + ":" + str(me).zfill(2)
+            assert "start" in time_dict
 
             if timezone:
-                time["tz"] = timezone
-            return time
+                time_dict["tz"] = timezone
+            return time_dict
         return
     
     @classmethod
