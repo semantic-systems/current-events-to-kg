@@ -64,37 +64,15 @@ class OutputRdf:
             uri =  topics_ns[str(hashlib.md5(t.text.encode('utf-8')).hexdigest())]
         return uri
 
-    def __getTopicURIIndexBased(self, t) -> URIRef:
-        prefix = t.sourceUrl + "#"
-        suffix = str(t.date.day) + "_t" + str(t.index)
-        uri = Namespace(prefix)[suffix]
-        return uri
-
-    
-    def __getEventURIIndexBased(self, e:Event) -> URIRef:
-        prefix = e.sourceUrl + "#"
-        suffix = str(e.date.day) + "_e" + str(e.eventIndex)
-        uri = Namespace(prefix)[suffix]
-        return uri
-
     def __get_osm_uri(self, osmElement:OSMElement) -> URIRef:
         suffix = str(osmElement.osmType) + "_" + str(osmElement.osmId)
         uri = osm_element_ns[suffix]
-        return uri
-    
-    def __get_infobox_row_uri(self, infobox_row:InfoboxRow, article:Article) -> URIRef:
-        prefix = article.url + "#"
-        url_encoded_label = quote_plus(infobox_row.label)
-        suffix = f"infoboxrow_{url_encoded_label}"
-        uri = Namespace(prefix)[suffix]
         return uri
     
     def __get_point_uri(self, coordinates:List[float]) -> URIRef:
         url_encoded_coords = quote_plus(f"{coordinates[0]}_{coordinates[1]}")
         uri = point_ns[url_encoded_coords]
         return uri
-    
-
     
     def __get_event_id(self, event:Event) -> str:
         date = event.date
@@ -135,7 +113,6 @@ class OutputRdf:
     def __get_phrase_uri(self, sentence_uri:URIRef, index:int) -> URIRef:
         uri = sentence_uri + f"_l{index}"
         return uri
-        
     
     def __get_article_uri(self, article:Article) -> URIRef:
         uri = URIRef(article.url)
