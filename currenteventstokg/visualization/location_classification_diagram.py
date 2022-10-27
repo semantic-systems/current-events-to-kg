@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 from getkey import getkey
 from .current_events_graph import CurrentEventsGraph
 from .current_events_diagram import CurrentEventDiagram
-from currenteventstokg import currenteventstokg_module_dir
+from currenteventstokg import currenteventstokg_dir
 
 
 class LocationClassificationDiagram(CurrentEventDiagram):
@@ -99,7 +99,7 @@ class LocationClassificationDiagram(CurrentEventDiagram):
                     f1s.append(f1)
                     
                 # plot
-                plt.style.use(currenteventstokg_module_dir / "resources" / "bar.mplstyle")
+                plt.style.use(currenteventstokg_dir / "resources" / "bar.mplstyle")
                 
                 fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2,2, squeeze=False, layout="constrained")
                 

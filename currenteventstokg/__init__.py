@@ -4,4 +4,4 @@
 from pathlib import Path
 from os.path import abspath, split
 
-currenteventstokg_module_dir = Path(split(abspath(__file__))[0])
+currenteventstokg_dir = Path(split(abspath(__file__))[0])

@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 import pandas as pd
-from currenteventstokg import currenteventstokg_module_dir
+from currenteventstokg import currenteventstokg_dir
 from geopandas import (GeoDataFrame, GeoSeries, datasets, read_file,
                        read_parquet)
 from rdflib import RDF, RDFS, XSD, BNode, Graph, Literal, Namespace, URIRef
@@ -519,6 +519,6 @@ if __name__ == "__main__":
     #m.createDayMap(29, force_query=force)
     # m.createMonthGif(30, force)
 
-    bulk_month_giffer(currenteventstokg_module_dir, base_files, force, sync_vmax=True, label="sum_log", no_ua=True)
+    bulk_month_giffer(currenteventstokg_dir, base_files, force, sync_vmax=True, label="sum_log", no_ua=True)
     
     

@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from wordcloud import WordCloud
 
-from .. import currenteventstokg_module_dir
+from .. import currenteventstokg_dir
 from ..etc import graph_name_list, months
 from .current_events_diagram import CurrentEventBarChart
 from .current_events_graph import CurrentEventsGraphSplit, SPARQLEndpoint, SPARQLEndpoint
@@ -94,7 +94,7 @@ class AverageGraphModuleSize(CurrentEventBarChart):
             filenames = [ f"{gn}_{gm}.jsonld" for gn in self.graph_names]
             size_sum = 0
             for f in filenames:
-                size_sum += getsize(str(currenteventstokg_module_dir / "dataset" / f))
+                size_sum += getsize(str(currenteventstokg_dir / "dataset" / f))
 
             data[gm] = (size_sum / len(filenames)) / 1000000
 
@@ -125,7 +125,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
 
-    plt.style.use(currenteventstokg_module_dir / "resources" / "style.mplstyle")
+    plt.style.use(currenteventstokg_dir / "resources" / "style.mplstyle")
     AverageGraphModuleSize(graphs, args.num_processes).createDiagram(args.force)
 
 

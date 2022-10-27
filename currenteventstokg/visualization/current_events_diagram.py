@@ -8,7 +8,7 @@ from typing import Dict, List, Optional, Tuple, Union
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import numpy as np
-from currenteventstokg import currenteventstokg_module_dir
+from currenteventstokg import currenteventstokg_dir
 from currenteventstokg.etc import month2int, months
 
 from .current_events_graph import CurrentEventsGraphSplit, CurrentEventsGraphABC
@@ -20,10 +20,10 @@ class CurrentEventDiagram():
 
         self.filename = f"{self.graph_names[0]}_{self.graph_names[-1]}"
 
-        self.cache_dir = currenteventstokg_module_dir / "cache" / sub_dir_name
+        self.cache_dir = currenteventstokg_dir / "cache" / sub_dir_name
         makedirs(self.cache_dir, exist_ok=True)
 
-        self.diagrams_dir = currenteventstokg_module_dir / "diagrams/" / sub_dir_name
+        self.diagrams_dir = currenteventstokg_dir / "diagrams/" / sub_dir_name
         makedirs(self.diagrams_dir, exist_ok=True)
 
         self._load_graph(graph_names, graph_modules)

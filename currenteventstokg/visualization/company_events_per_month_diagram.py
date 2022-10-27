@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from wordcloud import WordCloud
 
-from .. import currenteventstokg_module_dir
+from .. import currenteventstokg_dir
 from ..etc import graph_name_list, months
 from .current_events_diagram import CurrentEventBarChart
 from .current_events_graph import CurrentEventsGraphSplit, SPARQLEndpoint, SPARQLEndpoint
@@ -33,7 +33,7 @@ class NumCompanyEventsPerMonthDiagram(CurrentEventBarChart, Sleeper):
         self.wd_sleep_time = wd_sleep_time
         self.num_processes = num_processes
 
-        self.is_class_company_subclass_cache_path = currenteventstokg_module_dir / "cache" / "is_class_company_subclass.json"
+        self.is_class_company_subclass_cache_path = currenteventstokg_dir / "cache" / "is_class_company_subclass.json"
         self.is_class_company_subclass_cache = self.__loadJson(self.is_class_company_subclass_cache_path)
 
         # save caches after termination
@@ -234,7 +234,7 @@ if __name__ == "__main__":
 
     locale.setlocale(locale.LC_ALL,'en_US.UTF-8')
     plt.rcParams['axes.formatter.use_locale'] = True
-    plt.style.use(currenteventstokg_module_dir / "resources" / "style.mplstyle")
+    plt.style.use(currenteventstokg_dir / "resources" / "style.mplstyle")
     NumCompanyEventsPerMonthDiagram(graphs, args.wikidata_endpoint, args.query_sleep_time, args.num_processes).createDiagram(args.force)
     #NumCompanyEventsPerMonthDiagram(graphs, args.wikidata_endpoint, args.query_sleep_time, args.num_processes).countCompanies(args.force)
 

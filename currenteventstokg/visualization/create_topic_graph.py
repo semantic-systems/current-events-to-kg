@@ -19,7 +19,7 @@ import igraph
 import random
 import numpy as np
 import datetime
-from currenteventstokg import currenteventstokg_module_dir
+from currenteventstokg import currenteventstokg_dir
 
 
 
@@ -649,7 +649,7 @@ if __name__ == "__main__":
     force = True
 
     # TopicGraphDiagram(currenteventstokg_module_dir, m[0:1]).createDiagram(force)
-    TopicGraphDiagram(currenteventstokg_module_dir, m).createGif(force, "kk", True)
+    TopicGraphDiagram(currenteventstokg_dir, m).createGif(force, "kk", True)
     # TopicGraphDiagram(currenteventstokg_module_dir, "March_2022").createGifTest()
     # TopicGraphDiagram(currenteventstokg_module_dir, "March_2022").createiGraphGif()
     # TopicGraphDiagram(currenteventstokg_module_dir, m).createPyvisGraph(force)

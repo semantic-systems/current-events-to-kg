@@ -10,7 +10,7 @@ from typing import Dict, List, Tuple, Union, Optional
 from SPARQLWrapper import JSON, SPARQLWrapper
 from time import time
 from abc import ABC, abstractmethod
-from currenteventstokg import currenteventstokg_module_dir
+from currenteventstokg import currenteventstokg_dir
 from multiprocessing import Pool
 from currenteventstokg.outputRdf import NIF, COY, CEV, WGS, GEO, WD, CRM, GN, SCHEMA, DCTERMS
 
@@ -39,7 +39,7 @@ class CurrentEventsGraphABC(ABC):
 
 class CurrentEventsGraph(CurrentEventsGraphABC):
     def __init__(self, graph_names:List[str], graph_modules=["base"]):
-        dataset_dir = currenteventstokg_module_dir / "dataset/"
+        dataset_dir = currenteventstokg_dir / "dataset/"
 
         filepaths = []
         for gn in graph_names:
@@ -80,7 +80,7 @@ def f(graph_modules, q):
 
 class CurrentEventsGraphSplit(CurrentEventsGraphABC):
     def __init__(self, graph_names:List[str], graph_modules=["base"]):
-        dataset_dir = currenteventstokg_module_dir / "dataset/"
+        dataset_dir = currenteventstokg_dir / "dataset/"
 
         filepaths = []
         for gn in graph_names:
