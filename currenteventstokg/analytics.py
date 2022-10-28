@@ -2,10 +2,110 @@
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from time import time
-from pprint import pprint
+from pprint import pprint, pformat
 from sys import stdout
 from json import dump, load
 from os import makedirs
+from abc import ABC, abstractmethod
+from typing import List, Tuple
+
+class AnalyticsDatatype(ABC):
+    @abstractmethod
+    def reset(self): pass
+    def to_json_obj(self): pass
+    def from_json_obj(self): pass
+    def combine(self, other): pass
+
+class Amount(AnalyticsDatatype):
+    def __init__(self, amount=0):
+        self.amount = amount
+    
+    def __iadd__(self, other:int):
+        self.amount += other
+        return self
+    
+    def __repr__(self) -> str:
+        return f"{self.amount}"
+    
+    def to_json_obj(self):
+        return self.amount
+    
+    def from_json_obj(self, obj):
+        self.amount = obj
+    
+    def reset(self):
+        self.amount = 0
+    
+    def combine(self, other:"Amount"):
+        self.amount += other.amount
+
+class Average(AnalyticsDatatype):
+    def __init__(self, unit:str, summ=0, num=0):
+        self.unit = unit
+        self.sum = summ
+        self.num = num
+    
+    def add_value(self, v:float):
+        self.sum += v
+        self.num += 1
+    
+    def get_average(self) -> float:
+        if self.num == 0:
+            return -1
+        else:
+            return self.sum/self.num
+    
+    def __repr__(self) -> str:
+        return f"{str(self.get_average())} {self.unit}"
+    
+    def to_json_obj(self) -> object:
+        return [self.sum, self.num, self.unit]
+    
+    def from_json_obj(self, obj):
+        self.sum, self.num, self.unit = obj
+    
+    def reset(self):
+        self.sum, self.num = 0,0
+
+    def combine(self, other:"Average"):
+        assert self.unit == other.unit
+        self.sum += other.sum
+        self.num += other.num
+
+class ValueDict(AnalyticsDatatype):
+    def __init__(self, d=None):
+        if d:
+            self.d = d
+        else:
+            self.d = {}
+    
+    def increment(self, key):
+        if key in self.d:
+            self.d[key] += 1
+        else:
+            self.d[key] = 1
+    
+    def get_sorted_by_value(self) -> List[Tuple]:
+        return [(x, self.d[x]) for x in sorted(self.d, key=self.d.get, reverse=True)]
+    
+    def __repr__(self) -> str:
+        return pformat(self.get_sorted_by_value(), width=200)
+    
+    def to_json_obj(self) -> object:
+        return self.d
+    
+    def from_json_obj(self, obj):
+        self.d = obj
+
+    def reset(self):
+        self.d = {}
+    
+    def combine(self, other:"ValueDict"):
+        for k,v in other.d.items():
+            if k in self.d:
+                self.d[k] += v
+            else:
+                self.d[k] = v
 
 class Analytics:
 
@@ -17,47 +117,47 @@ class Analytics:
         makedirs(self.analyticsDir, exist_ok=True)
 
         # num*
-        self.numOpenings = 0
-        self.numDownloads = 0
-        self.numWikidataQueries = 0
-        self.numNominatimQueries = 0
-        self.numArticles = 0
-        self.numArticlesWithWkt = 0
-        self.numArticlesWithLocFlag = 0
-        self.numArticlesWithOsmrelid = 0
-        self.numArticlesWithOsmobj = 0
-        self.numTopics = 0
-        self.numTopicsWithLocation = 0
-        self.numTopicsWithType = 0
-        self.numTopicsWithDate = 0
-        self.numTopicsWithDateSpan = 0
-        self.numTopicsWithDateOngoing = 0
-        self.numTopicsWithDateParseError = 0
-        self.numTopicsWithTime = 0
-        self.numTopicsWithTimeSpan = 0
-        self.numTopicsWithTimeParseError = 0
-        self.numTopicsWithDtstart = 0
-        self.numTopicsWithDtend = 0
-        self.numEvents = 0
-        self.numEventsWithLocation = 0
-        self.numEventSentencesWithMoreThanOneLocation = 0
-        self.numEventsWithMoreThanOneLocation = 0
-        self.numEventsWithMoreThanOneLeafLocation = 0
-        self.numEventsWithType = 0
-        self.numFalconQuerys = 0
-        self.numFalconSuccessfulQuerys = 0
+        self.numOpenings = Amount()
+        self.numDownloads = Amount()
+        self.numWikidataQueries = Amount()
+        self.numNominatimQueries = Amount()
+        self.numArticles = Amount()
+        self.numArticlesWithWkt = Amount()
+        self.numArticlesWithLocFlag = Amount()
+        self.numArticlesWithOsmrelid = Amount()
+        self.numArticlesWithOsmobj = Amount()
+        self.numTopics = Amount()
+        self.numTopicsWithLocation = Amount()
+        self.numTopicsWithType = Amount()
+        self.numTopicsWithDate = Amount()
+        self.numTopicsWithDateSpan = Amount()
+        self.numTopicsWithDateOngoing = Amount()
+        self.numTopicsWithDateParseError = Amount()
+        self.numTopicsWithTime = Amount()
+        self.numTopicsWithTimeSpan = Amount()
+        self.numTopicsWithTimeParseError = Amount()
+        self.numTopicsWithDtstart = Amount()
+        self.numTopicsWithDtend = Amount()
+        self.numEvents = Amount()
+        self.numEventsWithLocation = Amount()
+        self.numEventSentencesWithMoreThanOneLocation = Amount()
+        self.numEventsWithMoreThanOneLocation = Amount()
+        self.numEventsWithMoreThanOneLeafLocation = Amount()
+        self.numEventsWithType = Amount()
+        self.numFalconQuerys = Amount()
+        self.numFalconSuccessfulQuerys = Amount()
 
         # avg* = [sum, num, "unit"]
-        self.avgWaitTimeUntilRequest = [0,0, "sec"]
-        self.avgTimeBetweenRequest = [0,0, "sec"]
-        self.avgDayTime = [0,0, "sec"]
-        self.avgMonthTime = [0,0, "min"]
+        self.avgWaitTimeUntilRequest = Average("sec")
+        self.avgTimeBetweenRequest = Average("sec")
+        self.avgDayTime = Average("sec")
+        self.avgMonthTime = Average("min")
 
         # dict*
-        self.dictTopicInfoboxLabels = {}
-        self.dictTopicInfoboxTemplates = {}
-        self.dictTopicInfoboxTemplatesWithoutLocationFound = {}
-        self.dictArticleInfoboxClasses = {}
+        self.dictTopicInfoboxLabels = ValueDict()
+        self.dictTopicInfoboxTemplates = ValueDict()
+        self.dictTopicInfoboxTemplatesWithoutLocationFound = ValueDict()
+        self.dictArticleInfoboxClasses = ValueDict()
         
         # not to print
         self.dayStartTime = 0
@@ -69,82 +169,50 @@ class Analytics:
     def topicInfoboxLabels(self, labels):
         if self.args.development_analytics:
             for l in labels:
-                self.__incrementDictValue(self.dictTopicInfoboxLabels, l)
+                self.dictTopicInfoboxLabels.increment(l)
     
     def topicInfoboxTemplate(self, x):
         if self.args.development_analytics:
-            self.__incrementDictValue(self.dictTopicInfoboxTemplates, x)
+            self.dictTopicInfoboxTemplates.increment(x)
     
     def topicInfoboxTemplateWithoutLocationFound(self, x):
         if self.args.development_analytics:
-            self.__incrementDictValue(self.dictTopicInfoboxTemplatesWithoutLocationFound, x)
+            self.dictTopicInfoboxTemplatesWithoutLocationFound.increment(x)
     
     def articleInfoboxClasses(self, l):
         if self.args.development_analytics:
             for x in l:
-                self.__incrementDictValue(self.dictArticleInfoboxClasses, x)
-
-    def __incrementDictValue(self, d, x):
-        if x in d:
-            d[x] += 1
-        else:
-            d[x] = 1
-
-    def __getSortedListFromDictByValue(self, d):
-        return [(x, d[x]) for x in sorted(d, key=d.get, reverse=True)]
-    
-    def waitTimeUntilRequest(self,t):
-        self.avgWaitTimeUntilRequest[0] += t
-        self.avgWaitTimeUntilRequest[1] += 1
-    
-    def timeBetweenRequest(self, t):
-        self.avgTimeBetweenRequest[0] += t
-        self.avgTimeBetweenRequest[1] += 1
-    
-    def __getAvg(self, sum, num):
-        if num == 0:
-            return -1
-        else:
-            return sum/num
+                self.dictArticleInfoboxClasses.increment(x)
     
     def dayStart(self):
         self.dayStartTime = time()
     
     def dayEnd(self):
-        self.avgDayTime[0] += time() - self.dayStartTime
-        self.avgDayTime[1] += 1
+        self.avgDayTime.add_value(time() - self.dayStartTime)
 
     def monthStart(self):
         self.monthStartTime = time()
     
     def monthEnd(self):
-        self.avgMonthTime[0] += (time() - self.monthStartTime)/60
-        self.avgMonthTime[1] += 1
+        self.avgMonthTime.add_value((time() - self.monthStartTime)/60)
 
     def __printTemplateVars(self, width, stream=stdout):
-        w = 200
         for k, v in self.__dict__.items():
             if self.args.development_analytics or k not in self.development_analytics_vars:
-                if k[0:3] == "num":
-                    print(k+": "+str(v), file=stream)
-                elif k[0:4] == "dict":
-                    print(k + ": ", file=stream)
-                    pprint(self.__getSortedListFromDictByValue(v), width=w, stream=stream)
-                elif k[0:3] == "avg":
-                    print(k + ": " + str(self.__getAvg(v[0], v[1])) + " " + v[2],
-                        file=stream)
+                if isinstance(v, AnalyticsDatatype):
+                    print(f"{k}: {str(v)}", file=stream)
 
 
     def printAnalytics(self, title="Analytics", w=200, stream=stdout):
         print("\n" + title + ":", file=stream)
-        self.__printTemplateVars(w, stream=stream)
+        self.__printTemplateVars(w, stream)
     
     def save(self, suffix):
         res = {}
         for k, v in self.__dict__.items():
             if self.args.development_analytics or k not in self.development_analytics_vars:
-                if k[0:3] == "num" or k[0:4] == "dict" or k[0:3] == "avg":
-                    res[k] = v
+                if isinstance(v, AnalyticsDatatype):
+                    res[k] = v.to_json_obj()
         
         path = self.analyticsDir / (suffix+"_analytics.json")
         with open(path, "w", encoding="utf-8") as fp:
@@ -162,36 +230,29 @@ class Analytics:
             raise e
 
         for k, v in self.__dict__.items():
-            if k[0:3] == "num" or k[0:4] == "dict" or k[0:3] == "avg":
-                if k in res:
-                    self.__dict__[k] = res[k]
-                else:
-                    self.__dict__[k] = self.__getDefault(k, v)
+            if k in res:
+                json_value = res[k]
+                if isinstance(v, Amount):
+                    self.__dict__[k] = Amount(json_value)
+                elif isinstance(v, ValueDict):
+                    self.__dict__[k] = ValueDict(json_value)
+                elif isinstance(v, Average):
+                    self.__dict__[k] = Average(json_value[2], json_value[0], json_value[1])
+            else:
+                if isinstance(v, AnalyticsDatatype):
+                    self.__dict__[k].reset()
         print("Done")
         
 
     def reset(self):
         for k, v in self.__dict__.items():
-            if k[0:3] == "num" or k[0:4] == "dict" or k[0:3] == "avg":
-                self.__dict__[k] = self.__getDefault(k, v)
-
-    def __getDefault(self, k, old_v):
-        if k[0:3] == "num":
-            return 0
-        elif k[0:4] == "dict":
-            return {}
-        elif k[0:3] == "avg":
-            return [0,0,old_v[2]]
+            if isinstance(v, AnalyticsDatatype):
+                v.reset()
     
-    def __iadd__(self, other):
-        for k in self.__dict__.keys():
+    def __iadd__(self, other:"Analytics"):
+        for k,v in self.__dict__.items():
             other_v = other.__dict__[k]
-            if k[0:3] == "num":
-                self.__dict__[k] += other_v
-            elif k[0:4] == "dict":
-                self.__dict__[k] |= other_v
-            elif k[0:3] == "avg":
-                self.__dict__[k][0] += other_v[0]
-                self.__dict__[k][1] += other_v[1]
+            if isinstance(v, AnalyticsDatatype):
+                v.combine(other_v)
         return self
 

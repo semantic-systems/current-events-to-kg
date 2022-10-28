@@ -54,8 +54,8 @@ class InputHtml(Sleeper):
                 if self.analytics:
                     #exclude first diff with >8000000
                     if diff >= 0:
-                        self.analytics.timeBetweenRequest(diff)
-                        self.analytics.waitTimeUntilRequest(waited)
+                        self.analytics.avgTimeBetweenRequest.add_value(diff)
+                        self.analytics.avgWaitTimeUntilRequest.add_value(waited)
                     self.analytics.numDownloads += 1
 
                 return requests.get(url)
