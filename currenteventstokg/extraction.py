@@ -222,7 +222,7 @@ class Extraction:
     
 
     def __getLocationFromInfobox(
-        self, ib, templates, infoboxTemplates, topicFlag, get_linked_articles=False) -> Tuple[
+        self, ib, templates, infoboxTemplates, topicFlag, article_recursions_left:int=0) -> Tuple[
             List[InfoboxRow],
             Optional[List[float]]
         ]:
@@ -282,16 +282,18 @@ class Extraction:
             # get entities about the location value from falcon2 api
             falcon2_wikidata_entities, falcon2_dbpedia_entities = self.falcon2Service.querySentence(locText)
 
-            link_articles, wd_entities_with_wp_article, falcon_articles = [],[],[]
-            if get_linked_articles:
+            wp_urls_of_wd_entities, falcon_articles = [],[]
+            if article_recursions_left > 0:
                 # get wikipedia articles from links
-                link_articles = self.__getArticles(locLinks)
+                self.__add_articles_to_links(locLinks, topic_flag=False, article_recursions_left=article_recursions_left)
 
                 # get wikipedia articles from falcons wikidata entities
                 wd_uris = [URIRef(e) for e in falcon2_wikidata_entities]
-                wd_uris2wp_urls = self.wikidataService.get_wikipedia_articles(wd_uris)
-                wd_entities_with_wp_article = wd_uris2wp_urls.values()
-                falcon_articles = self.__getArticles(wd_entities_with_wp_article)
+                wd_uris2wp_urls = self.wikidataService.get_wp_article_urls(wd_uris)
+                wp_urls_of_wd_entities = wd_uris2wp_urls.values()
+                for url in wp_urls_of_wd_entities:
+                    a = self.__getArticleFromUrlIfArticle(url, topicFlag=False, article_recursions_left=article_recursions_left)
+                    falcon_articles.append(a)
 
             # get wkts from infobox location value link labels
             ib_wkts = {}
@@ -301,9 +303,8 @@ class Extraction:
                 ib_wkts[l] = OSMElement(res.id(), res.type(), res.wkt())
 
             # create row
-            rows[label] = InfoboxRowLocation(label, locText, 
-                                    locLinks, link_articles,
-                                    wd_entities_with_wp_article, falcon_articles, 
+            rows[label] = InfoboxRowLocation(label, locText, locLinks,
+                                    wp_urls_of_wd_entities, falcon_articles, 
                                     falcon2_dbpedia_entities, ib_wkts)
             if topicFlag:
                 self.analytics.numTopicsWithLocation += 1
@@ -315,7 +316,7 @@ class Extraction:
         geodms = td.find("span", attrs={"class": "geo-dms"})
         if geodms:
             coords = self.__parseCoords(geodms)
-
+        
         return rows, coords
     
     
@@ -495,7 +496,7 @@ class Extraction:
         
         
     
-    def __parseInfobox(self, ib, templates, topicFlag=False, get_linked_articles=False) -> Tuple[
+    def __parseInfobox(self, ib, templates, topicFlag=False, article_recursions_left:int=0) -> Tuple[
             Dict[str, InfoboxRow],
             Dict[str, datetime.datetime],
             Optional[List[float]]
@@ -504,7 +505,7 @@ class Extraction:
         infoboxRows = {}
 
         # extract Locations
-        locs, coordinates = self.__getLocationFromInfobox(ib, templates, tib, topicFlag, get_linked_articles)
+        locs, coordinates = self.__getLocationFromInfobox(ib, templates, tib, topicFlag, article_recursions_left)
         infoboxRows |= locs
 
         # extract Dates and Times
@@ -534,7 +535,8 @@ class Extraction:
         return False
     
 
-    def __getArticleFromUrlIfArticle(self, url, topicFlag=False, get_linked_articles=False) -> Article:
+    # !!! check article_recursions_left > 0 or set it to a known value BEFORE calling this function 
+    def __getArticleFromUrlIfArticle(self, url, topicFlag=False, article_recursions_left:int=0) -> Article:
         # return none if url is not an article
         if not self.__testIfUrlIsArticle(url):
             return None
@@ -585,12 +587,17 @@ class Extraction:
         statsString = articleGraphTag.find_previous_sibling("script").string[51:-5]
         statsJson = json.loads(statsString)
         templates = set(re.findall(r"Template:\w+", str(statsJson["wgPageParseReport"]["limitreport"]["timingprofile"])))
-
+        
+        # decrement article recursion level tracker to stop infinite depth in article links
+        article_recursions_left -= 1 
+        if article_recursions_left < 0:
+            article_recursions_left = 0
+        
         # parse the infobox
         ibRows, microformats, ib_coordinates = {}, {}, None
         if ib:
             ibRows, microformats, ib_coordinates = self.__parseInfobox(
-                ib, templates, topicFlag, get_linked_articles
+                ib, templates, topicFlag, article_recursions_left
             )
         
         # check if page is a location
@@ -660,18 +667,12 @@ class Extraction:
         if articleWithWkt:
             self.analytics.numArticlesWithWkt += 1
         
+        self.analytics.numArticles += 1
+
         return Article(graphUrl, locFlag, coord, str(ib), ibRows, ib_coordinates, str(articleGraphTag.string), templates, 
                 wiki_wkts, wikidataEntityURI, wd_one_hop_g, parent_locations_and_relation, 
                 entity_label_dict, microformats, datePublished, dateModified, name, headline)
-
-    def __getArticles(self, wikiArticleLinks, get_linked_articles=False) -> List[Article]:
-        articles = []
-        for l in wikiArticleLinks:
-            url = l.href
-            articles.append(self.__getArticleFromUrlIfArticle(url, topicFlag=False, get_linked_articles=get_linked_articles))
-            self.analytics.numArticles += 1
-        
-        return articles
+    
 
     def __parseTopic(self, t, parentTopics, date:datetime.date, num_topics:int, sourceUrl:str) -> list[Topic]:
         if(isinstance(t, NavigableString)):
@@ -700,7 +701,7 @@ class Extraction:
                         href = "https://en.wikipedia.org" + href
                     
                     # article == None if href is redlink like on 27.1.2022
-                    article = self.__getArticleFromUrlIfArticle(href, topicFlag=True, get_linked_articles=True)
+                    article = self.__getArticleFromUrlIfArticle(href, topicFlag=True, article_recursions_left=2)
                     
                     # index of the topic
                     tnum = num_topics + len(topics)
@@ -709,38 +710,66 @@ class Extraction:
                     topics.append(t)
 
             return topics
+
     
-    def __splitEventTextIntoSentences(self, text, wikiLinks, articles) -> List[Sentence]:
+    def __add_articles_to_links(self, links:List[Link], topic_flag=False, article_recursions_left:int=0):
+        if article_recursions_left > 0:
+            for l in links:
+                a = self.__getArticleFromUrlIfArticle(l.href, topicFlag=topic_flag, article_recursions_left=article_recursions_left)
+                l.article = a
+
+    
+    def __parse_event(self, x:Tag, parentTopics:List[Topic], events_index:int, 
+            category:str, date:datetime.date, sourceUrl:str) -> Event:
+        # parse
+        text, links, sourceText, sourceLinks = self.__parseEventTagRecursive(x)
+
+        # get articles behind links
+        wikiArticleLinks = [l for l in links if self.__testIfUrlIsArticle(l.href)]
+        self.__add_articles_to_links(wikiArticleLinks, article_recursions_left=2)
+        
+        # split everything into sentences
+        sentences = self.__splitEventTextIntoSentences(text, wikiArticleLinks)
+        
+        # get types for this event from parent topics
+        eventTypes = self.__searchForEventTypesRecursive(parentTopics)
+        if len(eventTypes) > 0:
+            self.analytics.numEventsWithType += 1
+
+        return Event(str(x), parentTopics, text, sourceUrl, date, sentences, 
+                sourceLinks, sourceText, eventTypes, events_index, category)
+    
+
+    def __splitEventTextIntoSentences(self, text:str, wikiLinks:List[Link]) -> List[Sentence]:
 
         # split links occur, which are put into the sentence where they end in
-        def getArticlesAndLinksInSpan(wikiLinks, articles, start, end, linkOffset):
-            i = linkOffset
+        def getLinksInSpan(wikiLinks, start, end, linkOffset):
+            linkIndex = linkOffset
             sentenceLocNum = 0
             sentenceLinks = []
-            sentenceArticles = []
             
-            while(i < len(wikiLinks) and wikiLinks[i].endPos <= end):
+            while(linkIndex < len(wikiLinks) and wikiLinks[linkIndex].endPos <= end):
                 # switch context of link from event to sentence level
-                l = copy.copy(wikiLinks[i])
+                l = copy.copy(wikiLinks[linkIndex])
                 l.startPos -= start
                 l.endPos -= start
                 
                 sentenceLinks.append(l)
-                sentenceArticles.append(articles[i])
                 
-                if articles[i] and articles[i].location_flag:
+                article = l.article
+                if article and article.location_flag:
                     sentenceLocNum += 1
-                i += 1
+                linkIndex += 1
 
             if sentenceLocNum > 1:
                 self.analytics.numEventSentencesWithMoreThanOneLocation += 1
 
-            return (i, sentenceLinks, sentenceArticles, sentenceLocNum)
+            return (linkIndex, sentenceLinks, sentenceLocNum)
 
         textlen = len(text)
         sentences = []
         locNum = 0
-        i = 0
+        linkIndex = 0
         start = 0
 
         for p in re.finditer(r'\. ', text):
@@ -750,31 +779,30 @@ class Extraction:
             if any([end > wl.startPos and end < wl.endPos for wl in wikiLinks]):
                 continue
 
-            res = getArticlesAndLinksInSpan(wikiLinks, articles, start, end, i)
-            i, sentenceLinks, sentenceArticles, sentenceLocNum = res
+            linkIndex, sentenceLinks, sentenceLocNum = getLinksInSpan(wikiLinks, start, end, linkIndex)
             
-            sentences.append(Sentence(text[start:end], start, end, sentenceLinks, sentenceArticles))
+            sentences.append(Sentence(text[start:end], start, end, sentenceLinks))
             locNum += sentenceLocNum
 
             start = end
 
         # if there are characters left and the last char in text is a ".", put them in a last sentence if
         if start != textlen and text[-1] == ".":
-            res = getArticlesAndLinksInSpan(wikiLinks, articles, start, textlen, i)
-            i, sentenceLinks, sentenceArticles, sentenceLocNum = res
-            sentences.append(Sentence(text[start:textlen], start, textlen, sentenceLinks, sentenceArticles))
+            linkIndex, sentenceLinks, sentenceLocNum = getLinksInSpan(wikiLinks, start, textlen, linkIndex)
+            sentences.append(Sentence(text[start:textlen], start, textlen, sentenceLinks))
             locNum += sentenceLocNum
 
         # use everything as one sentence if no sentences have been found
         if len(sentences) == 0:
-            res = getArticlesAndLinksInSpan(wikiLinks, articles, 0, textlen, 0)
-            i, sentenceLinks, sentenceArticles, sentenceLocNum = res
-            sentences.append(Sentence(text, 0, textlen, sentenceLinks, sentenceArticles))
+            linkIndex, sentenceLinks, sentenceLocNum = getLinksInSpan(wikiLinks, 0, textlen, 0)
+            sentences.append(Sentence(text, 0, textlen, sentenceLinks))
             locNum += sentenceLocNum
 
-        if locNum > 1:
-            self.analytics.numEventsWithMoreThanOneLocation += 1
-
+        if locNum > 0:
+            self.analytics.numEventsWithLocation += 1
+            if locNum > 1:
+                self.analytics.numEventsWithMoreThanOneLocation += 1
+        
         return sentences # doest have Source at the end
     
     
@@ -792,6 +820,7 @@ class Extraction:
                     eventTypes |= res
         
         return eventTypes
+
 
     def parsePage(self, sourceUrl, page, year, monthStr):
         soup = BeautifulSoup(page, self.bs_parser)
@@ -824,61 +853,37 @@ class Extraction:
                     eventList = i.find_next_sibling("ul")
 
                     # extract events under their topics iteratively
-                    s = []  # stack with [parentTopics, li]
+                    stack = []  # stack with [parentTopics, li]
                     lis = eventList.find_all("li", recursive=False)
-                    s += [[[], li] for li in lis[::-1]]
-                    while(len(s) > 0):
-                        # print()
-                        # for i,x in enumerate(s):
-                        #     print(i, str(x[1])[:200])
-                        # print()
-                        xList = s.pop()
-                        parentTopics = xList[0]
-                        x = xList[1]
+                    stack += [[[], li] for li in lis[::-1]]
+                    while(len(stack) > 0):
+                        # get next li tag with its topics
+                        parentTopics, li = stack.pop()
 
-                        # x has ul's ? topic : event
-                        ul = x.find("ul")
-                        if(ul == None):  # x == event
+                        # li has ul's ? topic : event
+                        ul = li.find("ul")
+                        if(ul == None):  # li == event
                             print("E", end="", flush=True)
-                            text, links, sourceText, sourceLinks = self.__parseEventTagRecursive(x)
-                            #print("\n", text)
-                            wikiArticleLinks = [l for l in links if self.__testIfUrlIsArticle(l.href)]
-
-                            articles = self.__getArticles(wikiArticleLinks, get_linked_articles=True)
-                            
-                            sentences = self.__splitEventTextIntoSentences(text, wikiArticleLinks, articles)
-                            
-                            eventTypes = self.__searchForEventTypesRecursive(parentTopics)
-                            if len(eventTypes) > 0:
-                                self.analytics.numEventsWithType += 1
-
-                            e = Event(x, parentTopics, text, sourceUrl, date, sentences, 
-                                    sourceLinks, sourceText, eventTypes, evnum, category) 
+                            e = self.__parse_event(li, parentTopics, evnum, category, date, sourceUrl)
 
                             self.analytics.numEvents += 1
                             self.outputData.storeEvent(e)
-
-                            if(True in [a.location_flag for a in articles if a != None]):
-                                self.analytics.numEventsWithLocation += 1
-                            # else:
-                            #     print("\n", e)
-
                             evnum += 1
-                        else:  # x == topic(s)
+                            
+                        else:  # li == topic(s)
                             print("T", end="", flush=True)
-                            topics = self.__parseTopic(x, parentTopics, date, tnum, sourceUrl)
+                            topics = self.__parseTopic(li, parentTopics, date, tnum, sourceUrl)
 
                             for t in topics:
-                                #print("\n", t.text)
                                 self.analytics.numTopics += 1
                                 self.outputData.storeTopic(t)
                                 tnum += 1
                                 
-                            # append subtopics to stack
-                            subtopics = ul.find_all("li", recursive=False)
-                            subtopicsAndParentTopic = [
-                                [topics, st] for st in subtopics[::-1]]
-                            s += subtopicsAndParentTopic
+                            # append subelements to stack
+                            subelements = ul.find_all("li", recursive=False)
+                            subelementsAndParentTopic = [
+                                [topics, st] for st in subelements[::-1]]
+                            stack += subelementsAndParentTopic
 
             print("")
             self.analytics.dayEnd()

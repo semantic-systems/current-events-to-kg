@@ -170,13 +170,13 @@ class OutputRdf:
         graph.add((place_uri, RDF.type, CRM.E53_Place))
 
         # only use one row as the location (should only be one)
-        location_rows = [ibr for ibr in article.infobox_rows if isinstance(ibr, InfoboxRowLocation)]
+        location_rows = [ibr for ibr in article.infobox_rows.values() if isinstance(ibr, InfoboxRowLocation)]
         location_row = location_rows[0] if len(location_rows) > 0 else None
         if location_row:
-            graph.add((place_uri, CRM.P1_is_identified_by, location_row.value))
-        
-            for loc_article in set(location_row.falcon2_articles + location_row.link_articles):
-                article_uri = self.__addArticleTriples(loc_article)
+            graph.add((place_uri, CRM.P1_is_identified_by, Literal(str(location_row.value), datatype=XSD.string)))
+            link_articles = [ l.article for l in location_row.valueLinks if l.article ]
+            for loc_article in set(location_row.falcon2_articles + link_articles):
+                article_uri = self.__add_article_triples(loc_article)
                 loc_place_uri = self.__add_place(graph, loc_article)
                 graph.add((loc_place_uri, CRM.P189_approximates, place_uri))
         
@@ -313,7 +313,7 @@ class OutputRdf:
         return timespan_uri
     
 
-    def __add_article_triples(self, article:Article) -> Tuple[URIRef, Optional[URIRef]]:
+    def __add_article_triples(self, article:Article, is_topic_article:bool=False) -> Tuple[URIRef, Optional[URIRef]]:
         base = self.graphs["base"]
         osm = self.graphs["osm"]
         raw = self.graphs["raw"]
@@ -327,7 +327,7 @@ class OutputRdf:
             raw.add((article_uri, CEV.hasInfobox, Literal(str(article.infobox), datatype=XSD.string)))
         
         place_uri = None
-        if article.location_flag:
+        if article.location_flag or is_topic_article:
             place_uri = self.__add_place(base, article)
             base.add((place_uri, GN.wikipediaArticle, article_uri))
 
@@ -374,16 +374,14 @@ class OutputRdf:
         osm = self.graphs["osm"]
         raw = self.graphs["raw"]
 
-        all_articles = []
-        for s in event.sentences:
-            # add all existing articles
-            all_articles.extend([a for a in s.articles if a])
+        # add all existing articles
+        all_articles = event.get_linked_articles()
         
-        wd_loc_article_URIs = [
+        wd_location_article_URIs = [
             a.wikidata_entity for a in all_articles 
-            if a != None and a.wikidata_entity != None and a.location_flag == True
+            if a.wikidata_entity and a.location_flag == True
         ]
-        wd_loc_article_URIs4counting_leafs = set(wd_loc_article_URIs)
+        wd_loc_article_URIs4counting_leafs = set(wd_location_article_URIs)
         
         # filters for a specific event for generating an example sample ("2021–2022 Boulder County fires")
         if self.args.sample_mode and event.date != datetime.datetime(2022,1,1) and event.eventIndex != 1:
@@ -436,9 +434,7 @@ class OutputRdf:
 
         # sentences
         lastSentenceUri = None
-        sentences = event.sentences
-        for i in range(len(sentences)):
-            sentence = sentences[i]
+        for i, sentence in enumerate(event.sentences):
             sentence_uri = self.__get_sentence_uri(context_uri, i)
 
             base.add((sentence_uri, RDF.type, NIF.Sentence))
@@ -452,11 +448,8 @@ class OutputRdf:
                 base.add((lastSentenceUri, NIF.nextSentence, sentence_uri))
 
             # links per sentence as nif:Phase
-            links = sentence.links
-            articles = sentence.articles
-            for j in range(len(links)):
-                article = articles[j]
-                link = links[j]
+            for j, link in enumerate(sentence.links):
+                article = link.article
 
                 # link
                 link_uri = self.__get_phrase_uri(sentence_uri, j)
@@ -478,7 +471,7 @@ class OutputRdf:
                     # link wikidata entities with parent locations in this sentence (eg NY with USA)
                     for parent_wd_entity in article.parent_locations_and_relation:
                         # dont link reflexive (eg USA links USA as its country)
-                        if parent_wd_entity in wd_loc_article_URIs and \
+                        if parent_wd_entity in wd_location_article_URIs and \
                                 article.wikidata_entity != parent_wd_entity:
                             parent_loc_article = wd_entity2Article[parent_wd_entity]
                             parent_loc_place_uri = self.__get_place_uri(parent_loc_article)
@@ -520,7 +513,7 @@ class OutputRdf:
         
         if topic.article:
             # add article
-            article_uri, place_uri = self.__add_article_triples(topic.article)
+            article_uri, place_uri = self.__add_article_triples(topic.article, is_topic_article=True)
             base.add((e5_event_uri, GN.wikipediaArticle, article_uri))
 
             # connect place with event

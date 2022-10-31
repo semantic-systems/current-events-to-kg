@@ -8,11 +8,14 @@ from typing import List, Optional
 
 
 class Sentence():
-    def __init__(self, text:str, start:int, end:int, links:List[Link], articles:List[Optional[Article]]):
+    def __init__(self, text:str, start:int, end:int, links:List[Link]):
         self.text = text
         self.start = start
         self.end = end
         self.links = links
-        self.articles = articles
+    
+    def get_linked_articles(self) -> List[Article]:
+        return [l.article for l in self.links if l.article]
+
     
     

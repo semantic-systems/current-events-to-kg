@@ -219,7 +219,7 @@ SELECT DISTINCT ?osmrelid ?osmobj WHERE {
             
         return osmrelids, osmobjs
     
-    def get_wikipedia_articles(self, entitys:List[str]):
+    def get_wp_article_urls(self, entitys:List[str]) -> Dict[str, str]:
         result = {}
         missing_eids = set()
         

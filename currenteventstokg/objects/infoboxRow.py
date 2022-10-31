@@ -13,13 +13,10 @@ class InfoboxRow():
         self.valueLinks = valueLinks
 
 class InfoboxRowLocation(InfoboxRow):
-    def __init__(self, label:str, value:str, 
-            valueLinks:List[Link], link_articles:List["Article"],
+    def __init__(self, label:str, value:str, valueLinks:List[Link],
             falcon2_wikidata_entities:List[str], falcon2_articles:List["Article"], 
-            falcon2_dbpedia_entities:List[str], 
-            valueLinks_wkts:Dict[Link, OSMElement]):
+            falcon2_dbpedia_entities:List[str], valueLinks_wkts:Dict[Link, OSMElement]):
         super().__init__(label, value, valueLinks)
-        self.link_articles = link_articles
         self.falcon2_wikidata_entities = falcon2_wikidata_entities
         self.falcon2_articles = falcon2_articles
         self.falcon2_dbpedia_entities = falcon2_dbpedia_entities
