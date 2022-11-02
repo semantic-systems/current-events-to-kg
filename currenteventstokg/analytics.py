@@ -126,6 +126,8 @@ class Analytics:
         self.numArticlesWithLocFlag = Amount()
         self.numArticlesWithOsmrelid = Amount()
         self.numArticlesWithOsmobj = Amount()
+        self.numArticlesWithFalcon2WikidataEntity = Amount()
+        self.numArticlesWithFalcon2LocationArticle = Amount()
         self.numTopics = Amount()
         self.numTopicsWithLocation = Amount()
         self.numTopicsWithType = Amount()

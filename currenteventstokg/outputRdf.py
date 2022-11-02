@@ -178,7 +178,7 @@ class OutputRdf:
             for loc_article in set(location_row.falcon2_articles + link_articles):
                 article_uri = self.__add_article_triples(loc_article)
                 loc_place_uri = self.__add_place(graph, loc_article)
-                graph.add((loc_place_uri, CRM.P189_approximates, place_uri))
+                graph.add((loc_place_uri, CRM.P89_falls_within, place_uri))
         
         return place_uri
     

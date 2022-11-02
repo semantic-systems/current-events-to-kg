@@ -282,6 +282,9 @@ class Extraction:
             # get entities about the location value from falcon2 api
             falcon2_wikidata_entities, falcon2_dbpedia_entities = self.falcon2Service.querySentence(locText)
 
+            if falcon2_wikidata_entities:
+                self.analytics.numArticlesWithFalcon2WikidataEntity += 1
+            
             wp_urls_of_wd_entities, falcon_articles = [],[]
             if article_recursions_left > 0:
                 # get wikipedia articles from links
@@ -293,7 +296,13 @@ class Extraction:
                 wp_urls_of_wd_entities = wd_uris2wp_urls.values()
                 for url in wp_urls_of_wd_entities:
                     a = self.__getArticleFromUrlIfArticle(url, topicFlag=False, article_recursions_left=article_recursions_left)
-                    falcon_articles.append(a)
+
+                    # only use article if it is about a location to filter out some false results
+                    if a and a.location_flag:
+                        falcon_articles.append(a)
+            
+            if falcon_articles:
+                self.analytics.numArticlesWithFalcon2LocationArticle += 1
 
             # get wkts from infobox location value link labels
             ib_wkts = {}
@@ -536,7 +545,7 @@ class Extraction:
     
 
     # !!! check article_recursions_left > 0 or set it to a known value BEFORE calling this function 
-    def __getArticleFromUrlIfArticle(self, url, topicFlag=False, article_recursions_left:int=0) -> Article:
+    def __getArticleFromUrlIfArticle(self, url, topicFlag=False, article_recursions_left:int=0) -> Optional[Article]:
         # return none if url is not an article
         if not self.__testIfUrlIsArticle(url):
             return None
