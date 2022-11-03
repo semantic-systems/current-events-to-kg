@@ -313,7 +313,7 @@ class Extraction:
 
             # create row
             rows[label] = InfoboxRowLocation(label, locText, locLinks,
-                                    wp_urls_of_wd_entities, falcon_articles, 
+                                    falcon2_wikidata_entities, falcon_articles, 
                                     falcon2_dbpedia_entities, ib_wkts)
             if topicFlag:
                 self.analytics.numTopicsWithLocation += 1
