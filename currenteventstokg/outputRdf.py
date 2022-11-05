@@ -247,12 +247,12 @@ class OutputRdf:
                         ending = row.date
                         slot_filled = True
             
-            # only add tz if dates were used
-            if slot_filled and not timezone and row.timezone:
-                timezone = row.timezone
-                slot_filled = True
             
             if slot_filled:
+                # only add tz if dates were used
+                if not timezone and row.timezone:
+                    timezone = row.timezone
+
                 timespan_label += f"{row.label}: {row.value}\n"
         
         for row in time_rows:
@@ -283,11 +283,12 @@ class OutputRdf:
                 if not endtime:
                     endtime = row.endtime
                     slot_filled = True
-                if not timezone:
-                    timezone = row.timezone
-                    slot_filled = True
             
             if slot_filled:
+                # only add tz if time was used
+                if not timezone and row.timezone:
+                    timezone = row.timezone
+                
                 timespan_label += f"{row.label}: {row.value}\n"
         
         # store date/time triples from slots
