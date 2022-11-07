@@ -422,13 +422,11 @@ class Extraction:
             if timeDict:
                 time = timeDict["start"]
                 hasTime = True
-                endtime, timezone = None, None
+                endtime = None
                 if "end" in timeDict:
                     endtime = timeDict["end"]
                     hasTimeSpan = True
-                if "tz" in timeDict:
-                    timezone = timeDict["tz"]
-                timeRow = InfoboxRowTime(ibRow.label, ibRow.value, ibRow.valueLinks, time, endtime, timezone)
+                timeRow = InfoboxRowTime(ibRow.label, ibRow.value, ibRow.valueLinks, time, endtime)
                 resRows[label] = timeRow
             
             else:
@@ -438,7 +436,6 @@ class Extraction:
         # Extract date(span) and combine with time
         for i, date_rows in enumerate([date_rows_beginnings, date_rows_endings]):
             is_ending = bool(i)
-            row_type = "end" if is_ending else "start"
 
             for label, ibRow in date_rows.items():
                 value = re.sub(r"[–−]", r"-", ibRow.value)
@@ -452,12 +449,10 @@ class Extraction:
                     startTime, endTime = [], []
                     if timeDict:
                         hasTime = True
-                        spl = timeDict["start"].split(":")
-                        startTime = [int(spl[0]), int(spl[1])]
+                        startTime = timeDict["start"]
                         if "end" in timeDict:
                             hasTimeSpan = True
-                            spl = timeDict["end"].split(":")
-                            endTime = [int(spl[0]), int(spl[1])]
+                            endTime = timeDict["end"]
 
                     dateDict = DateTimeParser.parseDates(value)
                     
@@ -471,26 +466,27 @@ class Extraction:
                         elif "ongoing" in dateDict and dateDict["ongoing"] == True:
                             ongoing = True
                             self.analytics.numTopicsWithDateOngoing += 1
-
-                        if timeDict and "tz" in timeDict:
-                            timezone = timeDict["tz"]
-                        else:
-                            timezone = None
                         
                         # combine dates and times
-                        if startTime and endTime:
-                            if until:
-                                date = date.replace(hour=startTime[0], minute=startTime[1])
-                                until = until.replace(hour=endTime[0], minute=endTime[1])
-                            elif not ongoing:
-                                date = date.replace(hour=startTime[0], minute=startTime[1])
-                                until = date.replace(hour=endTime[0], minute=endTime[1])
-                        elif startTime:
-                            date = date.replace(hour=startTime[0], minute=startTime[1])
-                            
+                        if date and not until and not ongoing:
+                            if startTime:
+                                # eg 10.1.22 13:00
+                                date = date.replace(hour=startTime.hour, minute=startTime.minute)
+                                if endTime:
+                                    # eg 22.3.22 13:00-14:00
+                                    until = date.replace(hour=endTime.hour, minute=endTime.minute)
+                        elif startTime or endTime:
+                            # eg 22.3.22-23.3.22 13:00(-14:00)
+                            # time span discarded, as it is not a single span but multiple
+                            self.dateParseErrorLogger.info("\"" + value + "\"")
+                        
+                        if date and not until and not ongoing and is_ending:
+                            until = date
+                            date = None
+                        
                         dateRow = InfoboxRowDate(
                             ibRow.label, ibRow.value, ibRow.valueLinks, 
-                            date, until, ongoing, timezone, row_type)
+                            date, until, ongoing)
                         resRows[label] = dateRow
                     else:
                         self.dateParseErrorLogger.info("\"" + value + "\"")

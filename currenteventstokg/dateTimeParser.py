@@ -2,7 +2,7 @@
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 import re 
-from datetime import datetime
+from datetime import datetime, time, timezone, timedelta, tzinfo
 from pprint import pprint
 from typing import Dict, Optional, Union, Tuple
 
@@ -20,22 +20,34 @@ class DateTimeParser:
         return h
     
     @classmethod
-    def parseTimes(cls, value) -> Optional[Dict[str, str]]:
-        m = re.search(r"UTC(?P<offset>[\+-]\d\d?(?::\d\d)?)?", value)
-        if m:
-            timezone = m[0].strip("\n ")
+    def parseTimes(cls, value) -> Optional[Dict[str,time]]:
+        match = re.search(r"UTC(?P<h>[\+-]\d\d?)(?::(?P<m>\d\d))?", value)
+        if match:
+            gd = match.groupdict()
+            h = gd["h"]
+            m = gd["m"]
+            if h:
+                h = int(h)
+                if m:
+                    m = int(m)
+                else:
+                    m = 0
+            else:
+                h,m = 0,0
+            
+            tz = timezone(timedelta(hours=h, minutes=m))
         else:
-            timezone = None
+            tz = None
 
-        m = re.search(
+        match = re.search(
             r"(?P<hs>\d\d?):(?P<ms>\d\d)\s*((?P<ams>[aA].?[mM].?)|(?P<pms>[pP].?[mM].?))?" +
             r"(\s*(-|and|to)\s*" + 
             r"(?P<he>\d\d?):(?P<me>\d\d)\s*((?P<ame>[aA].?[mM].?)|(?P<pme>[pP].?[mM].?))?" +
             r")?", value)
-        if m:
+        if match:
             time_dict = {}
 
-            gd = m.groupdict()
+            gd = match.groupdict()
             for bound in ["start", "end"]:
                 x = bound[0]
                 h,m = gd["h"+x], gd["m"+x]
@@ -44,12 +56,10 @@ class DateTimeParser:
                     am,pm = gd["am"+x], gd["pm"+x]
                     if pm or am:
                         h = cls.__convert_12_to_24_format(h, bool(pm))
-                    time_dict[bound] = str(h).zfill(2) + ":" + str(m).zfill(2)
+                    time_dict[bound] = time(hour=h, minute=m, tzinfo=tz)
             
             assert "start" in time_dict
 
-            if timezone:
-                time_dict["tz"] = timezone
             return time_dict
         return
     
@@ -178,3 +188,26 @@ if __name__ == '__main__':
         x = re.sub(r"[–−]", r"-", x)
         print("\n" + x.strip("\n "))
         pprint(DateTimeParser.parseDates(x))
+        pprint(DateTimeParser.parseTimes(x))
+    
+    print("\nTesting timezone parsing...")
+
+    assert DateTimeParser.parseTimes(u"""10:41 a.m. (UTC+3)""") == \
+        {'start': time(10, 41, tzinfo=timezone(timedelta(hours=3, minutes=0)))}
+    assert DateTimeParser.parseTimes(u"""10:41 a.m. (UTC-3)""") == \
+        {'start': time(10, 41, tzinfo=timezone(timedelta(hours=-3, minutes=0)))}
+    assert DateTimeParser.parseTimes(u"""10:41 a.m. (UTC+3:30)""") == \
+        {'start': time(10, 41, tzinfo=timezone(timedelta(hours=3, minutes=30)))}
+    assert DateTimeParser.parseTimes(u"""10:41 a.m. (UTC-3:30)""") == \
+        {'start': time(10, 41, tzinfo=timezone(timedelta(hours=-3, minutes=30)))}
+
+    assert DateTimeParser.parseTimes(u"""10:41 a.m. (UTC+13)""") == \
+        {'start': time(10, 41, tzinfo=timezone(timedelta(hours=13, minutes=0)))}
+    assert DateTimeParser.parseTimes(u"""10:41 a.m. (UTC-13)""") == \
+        {'start': time(10, 41, tzinfo=timezone(timedelta(hours=-13, minutes=0)))}
+    assert DateTimeParser.parseTimes(u"""10:41 a.m. (UTC+13:30)""") == \
+        {'start': time(10, 41, tzinfo=timezone(timedelta(hours=13, minutes=30)))}
+    assert DateTimeParser.parseTimes(u"""10:41 a.m. (UTC-13:30)""") == \
+        {'start': time(10, 41, tzinfo=timezone(timedelta(hours=-13, minutes=30)))}
+    
+    print("All good!")

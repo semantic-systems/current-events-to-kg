@@ -184,22 +184,22 @@ class OutputRdf:
     
     def __add_timespan(self, graph:Graph, article:Article) -> Optional[URIRef]:
         # slots
-        date_or_beginning = None
-        ending = None
-        ongoing = False
-        timezone = None
-        time = None
-        endtime = None
+        start_date_slot = None
+        end_date_slot = None
+        start_time_slot = None
+        end_time_slot = None
+        ongoing_flag_slot = False
+        timezone_slot = None
 
         timespan_label = ""
 
         # use microformats as date first
         if "dtstart" in article.microformats:
-            date_or_beginning = article.microformats["dtstart"]
-            timespan_label += f"dtstart: {date_or_beginning}\n"
+            start_date_slot = article.microformats["dtstart"]
+            timespan_label += f"dtstart: {start_date_slot}\n"
         if "dtend" in article.microformats:
-            ending = article.microformats["dtend"]
-            timespan_label += f"dtend: {ending}\n"
+            end_date_slot = article.microformats["dtend"]
+            timespan_label += f"dtend: {end_date_slot}\n"
         
         def has_time(dt:datetime.datetime) -> bool:
             t = dt.time()
@@ -216,100 +216,99 @@ class OutputRdf:
             elif isinstance(row, InfoboxRowDate):
                 date_rows.append(row)
 
-        # fill slots if empty
+        # fill slots if empty or more info
         for row in date_rows:
             slot_filled = False
 
-            if row.date and row.enddate:
-                # fill slots with span dates
-                if not date_or_beginning and row.date:
-                    date_or_beginning = row.date
+            # fill start
+            if row.start_date:
+                if (not start_date_slot) or (start_date_slot and not has_time(start_date_slot) and has_time(row.start_date)):
+                    start_date_slot = row.start_date
                     slot_filled = True
-                if not ending and row.enddate:
-                    ending = row.enddate
-                    slot_filled = True
-            elif row.date:
-                # add date as either beginning or ending
-                if row.start_or_end_date == "start":
-                    if date_or_beginning:
-                        if not has_time(date_or_beginning) and has_time(row.date):
-                            date_or_beginning = row.date
-                            slot_filled = True
-                    else:
-                        date_or_beginning = row.date
-                        slot_filled = True
-                else:
-                    if ending:
-                        if not has_time(ending) and has_time(row.enddate):
-                            date_or_beginning = row.date
-                            slot_filled = True
-                    else:
-                        ending = row.date
-                        slot_filled = True
             
+            # fill end
+            if row.ongoing and not end_date_slot:
+                ongoing_flag_slot = True
+            elif row.end_date and not ongoing_flag_slot:
+                if (not end_date_slot) or (end_date_slot and not has_time(end_date_slot) and has_time(row.end_date)):
+                    end_date_slot = row.end_date
+                    slot_filled = True
+                    
+            # fill timezone
+            if not timezone_slot:
+                if row.start_date.tzinfo:
+                    timezone_slot = row.start_date.tzinfo
+                    slot_filled = True
+                elif row.end_date and row.end_date.tzinfo:
+                    timezone_slot = row.end_date.tzinfo
+                    slot_filled = True
             
             if slot_filled:
-                # only add tz if dates were used
-                if not timezone and row.timezone:
-                    timezone = row.timezone
-
                 timespan_label += f"{row.label}: {row.value}\n"
-        
+
         for row in time_rows:
             slot_filled = False
-            row_time_split = row.time.split(":", 1)
-            row_time_split = [int(i) for i in row_time_split]
-            
-            if row.endtime:
-                row_endtime = row.endtime.split(":", 1)
-                row_endtime = [int(i) for i in row_endtime]
 
-            if date_or_beginning and ending and row.time and row.endtime:
-                # add time span to date span
-                if not has_time(date_or_beginning):
-                    date_or_beginning = date_or_beginning.replace(
-                        hour=row_time_split[0], minute=row_time_split[1])
+            if start_date_slot and not end_date_slot:
+                # combine dates and times to one time span
+                # discard time(span) if time(span) produces multiple spans
+                if row.start_time and not has_time(start_date_slot):
+                    start_date_slot = start_date_slot.replace(
+                        hour=row.start_time.hour, minute=row.start_time.minute)
                     slot_filled = True
 
-                if not has_time(ending):
-                    ending = ending.replace(
-                        hour=row_endtime[0], minute=row_endtime[1])
+                if row.end_time:
+                    end_date_slot = start_date_slot.replace(
+                        hour=row.end_time.hour, minute=row.end_time.minute)
                     slot_filled = True
-            else:
+            elif not start_date_slot and not end_date_slot:
                 # add time triples extra
-                if not time:
-                    time = row.time
+                if not start_time_slot:
+                    start_time_slot = row.start_time
                     slot_filled = True
-                if not endtime:
-                    endtime = row.endtime
+                if not end_time_slot:
+                    end_time_slot = row.end_time
                     slot_filled = True
             
-            if slot_filled:
-                # only add tz if time was used
-                if not timezone and row.timezone:
-                    timezone = row.timezone
-                
+            if not timezone_slot:
+                if row.start_time.tzinfo:
+                    timezone_slot = row.start_time.tzinfo
+                    slot_filled = True
+                elif row.end_time and row.end_time.tzinfo:
+                    timezone_slot = row.end_time.tzinfo
+                    slot_filled = True
+            
+            if slot_filled:                
                 timespan_label += f"{row.label}: {row.value}\n"
+        
+        # if only the start datetime was found (nothing set the end), assume that the event is a point in time
+        if start_date_slot and not end_date_slot and not ongoing_flag_slot:
+            end_date_slot = start_date_slot
+        
+        # set found timezone for all found values
+        if timezone_slot:
+            if start_date_slot: start_date_slot = start_date_slot.replace(tzinfo=timezone_slot)
+            if end_date_slot: end_date_slot = end_date_slot.replace(tzinfo=timezone_slot)
+            if start_time_slot: start_time_slot = start_time_slot.replace(tzinfo=timezone_slot)
+            if end_time_slot: end_time_slot = end_time_slot.replace(tzinfo=timezone_slot)
         
         # store date/time triples from slots
         timespan_uri = None
-        if date_or_beginning or ending or ongoing or time or endtime:
-            timespan_uri = self.__get_timespan_uri(date_or_beginning, ending, ongoing, time, endtime, timezone)
+        if start_date_slot or end_date_slot or ongoing_flag_slot or start_time_slot or end_time_slot:
+            timespan_uri = self.__get_timespan_uri(start_date_slot, end_date_slot, ongoing_flag_slot, start_time_slot, end_time_slot, timezone_slot)
             graph.add((timespan_uri, RDF.type, CRM["E52_Time-Span"]))
             graph.add((timespan_uri, RDFS.label, Literal(timespan_label, datatype=XSD.string)))
 
-            if date_or_beginning:
-                graph.add((timespan_uri, CEV.hasDate, Literal(date_or_beginning.isoformat(), datatype=XSD.dateTime)))
-            if ending:
-                graph.add((timespan_uri, CEV.hasEndDate, Literal(ending.isoformat(), datatype=XSD.dateTime)))
-            elif ongoing:
+            if start_date_slot:
+                graph.add((timespan_uri, CEV.hasStartDate, Literal(start_date_slot.isoformat(), datatype=XSD.dateTime)))
+            if end_date_slot:
+                graph.add((timespan_uri, CEV.hasEndDate, Literal(end_date_slot.isoformat(), datatype=XSD.dateTime)))
+            elif ongoing_flag_slot:
                 graph.add((timespan_uri, CEV.hasOngoingSpan, Literal("true", datatype=XSD.boolean)))
-            if timezone:
-                graph.add((timespan_uri, CEV.hasTimezone, Literal(timezone, datatype=XSD.string))) 
-            if time:
-                graph.add((timespan_uri, CEV.hasTime, Literal(time, datatype=XSD.time)))
-            if endtime:
-                graph.add((timespan_uri, CEV.hasEndTime, Literal(endtime, datatype=XSD.time)))
+            if start_time_slot:
+                graph.add((timespan_uri, CEV.hasStartTime, Literal(start_time_slot, datatype=XSD.time)))
+            if end_time_slot:
+                graph.add((timespan_uri, CEV.hasEndTime, Literal(end_time_slot, datatype=XSD.time)))
         
         return timespan_uri
     

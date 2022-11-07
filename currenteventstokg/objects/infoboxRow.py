@@ -24,20 +24,17 @@ class InfoboxRowLocation(InfoboxRow):
 
 class InfoboxRowTime(InfoboxRow):
     def __init__(self, label:str, value:str, valueLinks:List[Link], 
-            time:str, endtime:Optional[str], timezone:Optional[str]):
+            start_time:datetime.time, end_time:Optional[datetime.time]):
         super().__init__(label, value, valueLinks) 
-        self.time = time # XSD.time conform string
-        self.endtime = endtime # XSD.time conform string
-        self.timezone = timezone
+        self.start_time = start_time # XSD.time conform string
+        self.end_time = end_time # XSD.time conform string
 
 class InfoboxRowDate(InfoboxRow):
     def __init__(self, label:str, value:str, valueLinks:List[Link], 
-            date: datetime.datetime, enddate: Optional[datetime.datetime], 
-            ongoing: bool, timezone: Optional[str], start_or_end_date:str):
+            start_date: Optional[datetime.datetime], end_date: Optional[datetime.datetime], 
+            ongoing: bool):
         super().__init__(label, value, valueLinks) 
-        self.date = date
-        self.enddate = enddate
+        self.start_date = start_date
+        self.end_date = end_date
         self.ongoing = ongoing
-        self.timezone = timezone
-        self.start_or_end_date = start_or_end_date # "start" or "end"
     
