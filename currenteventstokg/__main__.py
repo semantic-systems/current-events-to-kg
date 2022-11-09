@@ -257,6 +257,8 @@ if __name__ == '__main__':
                         print("Exception!", be)
                         print("Parsing this month will be skipped!")
                 
+                a.monthEnd()
+                
                 # save
                 if parsing_successful:
                     # save graphs
@@ -276,7 +278,6 @@ if __name__ == '__main__':
                 # load analytics for combining
                 a.load(file_prefix)
 
-            a.monthEnd()
 
             a.printAnalytics(title=file_prefix + " Analytics")
 
