@@ -222,21 +222,29 @@ class OutputRdf:
 
             # fill start
             if row.start_date:
-                if (not start_date_slot) or (start_date_slot and not has_time(start_date_slot) and has_time(row.start_date)):
+                if not start_date_slot:
                     start_date_slot = row.start_date
+                    slot_filled = True
+                elif start_date_slot and not has_time(start_date_slot) and has_time(row.start_date):
+                    start_date_slot = start_date_slot.replace(
+                        hour=row.start_date.hour, minute=row.start_date.minute)
                     slot_filled = True
             
             # fill end
             if row.ongoing and not end_date_slot:
                 ongoing_flag_slot = True
             elif row.end_date and not ongoing_flag_slot:
-                if (not end_date_slot) or (end_date_slot and not has_time(end_date_slot) and has_time(row.end_date)):
+                if not end_date_slot:
                     end_date_slot = row.end_date
+                    slot_filled = True
+                elif end_date_slot and not has_time(end_date_slot) and has_time(row.end_date):
+                    end_date_slot = end_date_slot.replace(
+                        hour=row.end_date.hour, minute=row.end_date.minute)
                     slot_filled = True
                     
             # fill timezone
             if not timezone_slot:
-                if row.start_date.tzinfo:
+                if row.start_date and row.start_date.tzinfo:
                     timezone_slot = row.start_date.tzinfo
                     slot_filled = True
                 elif row.end_date and row.end_date.tzinfo:
