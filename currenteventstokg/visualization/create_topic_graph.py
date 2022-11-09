@@ -435,7 +435,7 @@ class TopicGraphDiagram:
                     
                 OPTIONAL{
                     ?t crm:P4_has_time-span ?ts.
-                    ?ts coy_ev:hasDate ?a_date.
+                    ?ts coy_ev:hasStartDate ?a_date.
                 }
                 
             } GROUP BY ?pt ?t ?pl ?l ?a_date""")
