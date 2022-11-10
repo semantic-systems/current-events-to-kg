@@ -128,6 +128,8 @@ class Analytics:
         self.numArticlesWithOsmobj = Amount()
         self.numArticlesWithFalcon2WikidataEntity = Amount()
         self.numArticlesWithFalcon2LocationArticle = Amount()
+        self.numArticleCacheHits = Amount()
+        self.numArticleCacheMisses = Amount()
         self.numTopics = Amount()
         self.numTopicsWithLocation = Amount()
         self.numTopicsWithType = Amount()
@@ -164,6 +166,9 @@ class Analytics:
         # not to print
         self.dayStartTime = 0
         self.monthStartTime = 0
+        self.last_article_cache_hits = 0
+        self.last_article_cache_misses = 0
+
 
         self.development_analytics_vars = ["dictTopicInfoboxLabels", "dictTopicInfoboxTemplates", 
                 "dictTopicInfoboxTemplatesWithoutLocationFound", "dictArticleInfoboxClasses"]
@@ -197,6 +202,13 @@ class Analytics:
     
     def monthEnd(self):
         self.avgMonthTime.add_value((time() - self.monthStartTime)/60)
+    
+    def report_cache_stats(self, hits:int, misses:int):
+        self.numArticleCacheHits += (hits - self.last_article_cache_hits)
+        self.numArticleCacheMisses += (misses - self.last_article_cache_misses)
+        self.last_article_cache_hits = hits
+        self.last_article_cache_misses = misses
+
 
     def __printTemplateVars(self, width, stream=stdout):
         for k, v in self.__dict__.items():

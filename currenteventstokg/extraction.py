@@ -9,6 +9,7 @@ import re
 from os import makedirs
 from string import Template
 from typing import Dict, List, Optional, Tuple, Union
+from functools import lru_cache
 
 from bs4 import BeautifulSoup, NavigableString, Tag
 from rdflib import Graph, URIRef
@@ -43,6 +44,8 @@ class Extraction:
         self.place_templates = place_templates_extractor.get_templates(args.force_parse)
         self.args = args
         self.bs_parser = bs_parser
+
+        self.article_recursions = 2
         
         # debug logger init
         logdir = self.basedir / "logs"
@@ -528,6 +531,7 @@ class Extraction:
         
         return infoboxRows, microformats, coordinates
 
+
     def __testIfUrlIsArticle(self, url:str) -> bool:
         # negative tests
         if re.match("https://en.wikipedia.org/wiki/\w*:", url):
@@ -539,9 +543,17 @@ class Extraction:
             return True
         return False
     
+    
+    def __add_articles_to_links(self, links:List[Link], topic_flag=False, article_recursions_left:int=0):
+        if article_recursions_left > 0:
+            for l in links:
+                a = self.__getArticleFromUrlIfArticle(l.href, topicFlag=topic_flag, article_recursions_left=article_recursions_left)
+                l.article = a
+
 
     # !!! check article_recursions_left > 0 or set it to a known value BEFORE calling this function 
-    def __getArticleFromUrlIfArticle(self, url, topicFlag=False, article_recursions_left:int=0) -> Optional[Article]:
+    @lru_cache(maxsize=3000)
+    def __getArticleFromUrlIfArticle(self, url:str, topicFlag:bool=False, article_recursions_left:int=0) -> Optional[Article]:
         # return none if url is not an article
         if not self.__testIfUrlIsArticle(url):
             return None
@@ -706,7 +718,7 @@ class Extraction:
                         href = "https://en.wikipedia.org" + href
                     
                     # article == None if href is redlink like on 27.1.2022
-                    article = self.__getArticleFromUrlIfArticle(href, topicFlag=True, article_recursions_left=2)
+                    article = self.__getArticleFromUrlIfArticle(href, topicFlag=True, article_recursions_left=self.article_recursions)
                     
                     # index of the topic
                     tnum = num_topics + len(topics)
@@ -717,13 +729,6 @@ class Extraction:
             return topics
 
     
-    def __add_articles_to_links(self, links:List[Link], topic_flag=False, article_recursions_left:int=0):
-        if article_recursions_left > 0:
-            for l in links:
-                a = self.__getArticleFromUrlIfArticle(l.href, topicFlag=topic_flag, article_recursions_left=article_recursions_left)
-                l.article = a
-
-    
     def __parse_event(self, x:Tag, parentTopics:List[Topic], events_index:int, 
             category:str, date:datetime.date, sourceUrl:str) -> Event:
         # parse
@@ -731,7 +736,7 @@ class Extraction:
 
         # get articles behind links
         wikiArticleLinks = [l for l in links if self.__testIfUrlIsArticle(l.href)]
-        self.__add_articles_to_links(wikiArticleLinks, article_recursions_left=2)
+        self.__add_articles_to_links(wikiArticleLinks, topic_flag=False, article_recursions_left=self.article_recursions)
         
         # split everything into sentences
         sentences = self.__splitEventTextIntoSentences(text, wikiArticleLinks)
@@ -892,5 +897,10 @@ class Extraction:
 
             print("")
             self.analytics.dayEnd()
+        
+        hits, misses, maxsize, currsize = self.__getArticleFromUrlIfArticle.cache_info()
+        print("Article cache info: hits=", hits, "misses=", misses, "maxsize=", maxsize, "currsize=", currsize)
+        self.analytics.report_cache_stats(hits, misses)
+
         return
 
