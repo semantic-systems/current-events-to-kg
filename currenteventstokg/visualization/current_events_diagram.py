@@ -4,6 +4,8 @@
 from os import makedirs
 import locale
 from typing import Dict, List, Optional, Tuple, Union
+import json
+import datetime
 
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
@@ -30,62 +32,70 @@ class CurrentEventDiagram():
     
     def _load_graph(self, graph_names, graph_modules):
         self.graph = self.graph_class(graph_names=graph_names, graph_modules=graph_modules)
+    
+    def _load_json(self, file_path):
+        with open(file_path, mode='r', encoding="utf-8") as f:
+            return json.load(f)
+    
+    def _dump_json(self, file_path, obj):
+        with open(file_path, mode='w', encoding="utf-8") as f:
+            json.dump(obj, f)
+
 
 class CurrentEventBarChart(CurrentEventDiagram):
     def __init__(self, sub_dir_name:str, graph_names:List[str], graph_modules=["base"], graph_class:CurrentEventsGraphABC=CurrentEventsGraphSplit):
         super().__init__(sub_dir_name, graph_names, graph_modules, graph_class)
 
     def _create_bar_chart_per_month(self, data, title:str, x_label:str, y_label:str):
-        fig, ax = plt.subplots()
+        fig, ax = plt.subplots(constrained_layout=True)
         
         keys = sorted(list(data.keys()))
-        y = []
-        x = []
-        tick_labels = []
-        labels = [None, 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+        x,y = [],[]
         for year in keys:
             for month in range(12):
                 if not np.isnan(data[year][month]):
                     y.append(data[year][month])
-                    #x.append(f"{labels[month+1]}/{int(year)-2000}")
-                    x.append(np.datetime64(f"{int(year)}-{month+1:02d}"))
-                    if month == 0 or len(x) == 0:
-                        tick_labels.append(f"{int(year)-2000}")
-                    elif month%2 == 0:
-                        tick_labels.append(f"{labels[month+1]}")
-                    else:
-                        tick_labels.append(f"")
+                    x.append(datetime.datetime(int(year), month+1, 1))
                     
         locale.setlocale(locale.LC_TIME,'en_US.UTF-8')
         
-        locator = mdates.AutoDateLocator() #minticks=3, maxticks=7
-        locator.intervald[mdates.MONTHLY] = [4]
-        ax.xaxis.set_major_locator(locator)
-        formatter = mdates.ConciseDateFormatter(locator)
-        ax.xaxis.set_major_formatter(formatter)
-        
-        minor_locator = mdates.MonthLocator()
-        ax.xaxis.set_minor_locator(minor_locator)
+        if len(keys) > 1:
+            # multiple years span
+            locator = mdates.AutoDateLocator() #minticks=3, maxticks=7
+            locator.intervald[mdates.MONTHLY] = [4]
+            ax.xaxis.set_major_locator(locator)
+            formatter = mdates.ConciseDateFormatter(locator)
+            ax.xaxis.set_major_formatter(formatter)
+            
+            minor_locator = mdates.MonthLocator()
+            ax.xaxis.set_minor_locator(minor_locator)
+        else:
+            locator = mdates.MonthLocator()
+            formatter = mdates.ConciseDateFormatter(locator, show_offset=False)
 
-        ax.bar(x, y, 
-            color=None,
-            edgecolor="black",
+            ax.xaxis.set_major_locator(locator)
+            ax.xaxis.set_major_formatter(formatter)
+
+            ax.minorticks_off()
+
+        ax.bar(x, y,
+            width=25
         )
         ax.set_title(title)
-        ax.set_ylabel(y_label)
-        ax.set_xlabel(x_label)
-        
+        ax.set_ylabel(f"\\textbf{{{y_label}}}")
+        ax.set_xlabel(f"\\textbf{{{x_label}}}")
         
         return fig
+
 
     def _create_bar_chart_from_data(self, ax, data, title:str, x_label:str, y_label:str):        
         x = list(data.keys())
         y = [data[key] for key in x]
 
         ax.bar(x, y, 
-            color=None,
-            edgecolor="black",
+            # color=None,
+            # edgecolor="black",
         )
         ax.set_title(title)
-        ax.set_ylabel(y_label)
-        ax.set_xlabel(x_label)
+        ax.set_ylabel(f"\\textbf{{{y_label}}}")
+        ax.set_xlabel(f"\\textbf{{{x_label}}}")

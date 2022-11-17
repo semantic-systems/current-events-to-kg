@@ -1,26 +1,28 @@
 # Copyright: (c) 2022, Lars Michaelis
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
-import networkx as nx
+import datetime
+import json
+import random
 from os import makedirs
 from os.path import abspath, exists, split
 from pathlib import Path
-from typing import Dict, List, Tuple, Union
-import json
-import matplotlib.pyplot as plt
-from currenteventstokg.etc import months, month2int
-from time import time
 from string import Template
+from time import time
+from typing import Dict, List, Tuple, Union
+import argparse
+import math
+
+import igraph
 import imageio
+import matplotlib.pyplot as plt
+import networkx as nx
+import numpy as np
+from currenteventstokg import currenteventstokg_dir
+from currenteventstokg.etc import month2int, months, graph_name_list
+from pyvis.network import Network
 from SPARQLWrapper import JSON, SPARQLWrapper
 from tqdm import tqdm
-from pyvis.network import Network
-import igraph
-import random
-import numpy as np
-import datetime
-from currenteventstokg import currenteventstokg_dir
-
 
 
 def querySparql(query:str, query_name:str, cache_dir:Path, force:bool=False):
@@ -66,19 +68,16 @@ class TopicGraphDiagram:
         self.start_year = int(self.graph_names[0].split("_")[1])
         self.end_year = int(self.graph_names[-1].split("_")[1])
 
-        filename = ""
-        for i,gn in enumerate(self.graph_names):
-            if i>0:
-                filename += "_"
-            filename += gn
-        self.filename = filename
+        self.filename = f"{self.start_month}_{self.start_year}_{self.end_month}_{self.end_year}"
 
-        self.cache_dir = basedir / "./cache/topic_graph_diagram"
+        sub_dir = "topic_graph_diagram"
+
+        self.cache_dir = basedir / "cache" / sub_dir
         makedirs(self.cache_dir, exist_ok=True)
 
-        self.resource_dir = basedir / "resources/"
+        self.resource_dir = basedir / "resources"
 
-        self.diagrams_dir = basedir / "./diagrams/"
+        self.diagrams_dir = basedir / "diagrams" / sub_dir
         makedirs(self.diagrams_dir, exist_ok=True)
 
         self.draw_options = {
@@ -91,64 +90,9 @@ class TopicGraphDiagram:
             "node_color":"#0058b5",
         }
 
+        self.root = "2022 Russian invasion of Ukraine"
+
     
-    def createGifTest(self):
-        frame_dir = self.cache_dir / "gif_frames_test"
-        makedirs(frame_dir, exist_ok=True)
-
-        g = self._minDateDiGraph(False)
-
-        # spring layout doesnt work with directed graphs(?)
-        gu = g.to_undirected()
-
-        pos = nx.spring_layout(
-            gu, 
-            iterations=50,
-            scale=None,
-            seed=42,
-        )
-
-        with open("/home/lars/git/current-events-to-kg/cache/pos_array.json", "r", encoding="utf-8") as f:
-            pos_array = json.load(f)
-        
-        new_pos_array = []
-        for pos in pos_array:
-            new_pos = {}
-            for node, xy in dict(zip(g, pos)).items():
-                new_pos[node] = np.array(xy)
-            new_pos_array.append(new_pos)
-        
-        pos_array = new_pos_array
-
-        filenames = []
-        for i,pos in enumerate(pos_array):
-            print(i)
-            nx.draw(g, pos=pos, 
-                **self.draw_options
-            )
-            fname = frame_dir / f"{i}.png"
-            plt.savefig(
-                fname,
-            )
-            plt.close()
-            filenames.append(fname)
-        
-        print("Collecting gif frames...")
-        frames = []
-        for filename in filenames:
-            image = imageio.imread(filename)
-            frames.append(image)
-
-        out_path = str(self.diagrams_dir / f"{self.filename}_test.gif")
-        print(f"Saving gif to {out_path}...")
-        imageio.mimsave(
-            out_path,
-            frames, 'GIF')
-        print("Done")
-
-
-
-
     def createiGraph(self):
         g = self._minDateDiGraph(False)
 
@@ -183,7 +127,6 @@ class TopicGraphDiagram:
             
             filenames.append(fname)
 
-
         frames = []
         for filename in filenames:
             image = imageio.imread(filename)
@@ -194,15 +137,15 @@ class TopicGraphDiagram:
             frames, 'GIF')
 
 
-    def createPyvisGraph(self, force=True, only_first_path_to_root:bool=False):
+    def createPyvisGraph(self, force=True, tree:bool=False):
         # g = self._minDateDiGraph(False)
 
         # create daily topic graph
         res = self._getDailyNewTopics(force, False)
 
         # create graph
-        if only_first_path_to_root:
-            g = self._dailys2DiGraphOnlyFirstPathToRoot(res)
+        if tree:
+            g = self._dailys2Tree(res)
         else:
             g = self._dailys2DiGraph(res)
 
@@ -210,7 +153,7 @@ class TopicGraphDiagram:
         nt.from_nx(g)
         nt.show_buttons(filter_=["physics", "edges", "nodes"])
         nt.show('nx.html')
-
+    
 
     def getPosFromLayout(self, g:nx.DiGraph, layout_id:str):
         # spring layout doesnt work with directed graphs(?)
@@ -226,21 +169,19 @@ class TopicGraphDiagram:
             pos = nx.nx_agraph.graphviz_layout(g, prog="neato") 
         elif layout_id == "twopi":
             pos = nx.nx_agraph.graphviz_layout(g, prog="twopi")
-        
+
         return pos
 
 
-    def createDiagram(self, force=False, layout:str="kk", only_first_path_to_root:bool=False):
+    def createDiagram(self, force=False, layout:str="kk", tree:bool=False):
         # create daily topic graph
         res = self._getDailyNewTopics(force=force, use_a_date=False)
 
         # create graph
-        if only_first_path_to_root:
-            g = self._dailys2DiGraphOnlyFirstPathToRoot(res)
+        if tree:
+            g = self._dailys2Tree(res)
         else:
             g = self._dailys2DiGraph(res)
-
-        #nx.write_graphml(g, "g")
 
         pos = self.getPosFromLayout(g, layout)
 
@@ -255,10 +196,15 @@ class TopicGraphDiagram:
             edge_color="#f7ce00",
             node_color="#0058b5",
             font_size=6,
+            clip_on=False
         )
-        suffix = "first_" if only_first_path_to_root else "all_"
+
+        # adjust the plot limits to remove plot margins
+        plt.autoscale(enable=True, axis='both', tight=True)
+
+        suffix = "tree_" if tree else "all_"
         suffix += layout
-        fname = self.diagrams_dir / f"test_{suffix}.png"
+        fname = self.diagrams_dir / f"{self.filename}_{suffix}.svg"
 
         
         plt.savefig(
@@ -270,21 +216,23 @@ class TopicGraphDiagram:
         plt.show()
 
     
-    def createGif(self, force=False, layout:str="kk", only_first_path_to_root:bool=False):
+    def createGif(self, force=False, layout:str="kk", tree:bool=False):
         frame_dir = self.cache_dir / "gif_frames"
         makedirs(frame_dir, exist_ok=True)
 
-        # create daily topics
+        ## create whole graph to get layout positions and limits
         res = self._getDailyNewTopics(force=force, use_a_date=False)
 
-        # create graph
-        if only_first_path_to_root:
-            g = self._dailys2DiGraphOnlyFirstPathToRoot(res)
+        if tree:
+            g = self._dailys2Tree(res)
+
+            # compute transitive reduction
+            temp_g = self._dailys2DiGraph_DAG(res)
+            tr_g = nx.transitive_reduction(temp_g)
         else:
             g = self._dailys2DiGraph(res)
 
-        #nx.write_graphml(g, "g")
-
+        # compute layout
         pos = self.getPosFromLayout(g, layout)
 
         # plot whole graph to get limits
@@ -293,21 +241,25 @@ class TopicGraphDiagram:
             g, 
             ax=ax,
             pos=pos,
-            **self.draw_options
+            **self.draw_options,
+            clip_on=False
         )
+
+        # adjust the plot limits to remove plot margins
+        ax.autoscale(enable=True, axis='both', tight=True)
+
         xlim, ylim = ax.get_xlim(), ax.get_ylim()
         plt.show()
-
-        # create daily new graph elements
-        g = nx.DiGraph()
 
         # calculate total days
         days = 0
         for year in sorted(res):
             for month in sorted(res[year]):
                 days += len(res[year][month])
-
         print(days, "days")
+
+        ## create daily new graph elements gif
+        g = nx.DiGraph()
 
         filenames = []
         nodes = []
@@ -321,8 +273,8 @@ class TopicGraphDiagram:
                         # add new topic from this day to graph
                         topics = res[year][month][day]
 
-                        if only_first_path_to_root:
-                            new_nodes = self._addTopicsOnlyFirstPathToRoot(g, topics)
+                        if tree:
+                            new_nodes = self._add_edges_forming_tree(g, tr_g, topics, self.root)
                         else:
                             new_nodes = self._addTopicsToGraph(g, topics)
 
@@ -370,7 +322,6 @@ class TopicGraphDiagram:
                                 fname,
                                 #dpi=400,
                                 bbox_inches='tight',
-
                             )
                             plt.close(fig)
                             filenames.append(fname)
@@ -386,7 +337,7 @@ class TopicGraphDiagram:
             image = imageio.imread(filename)
             frames.append(image)
 
-        suffix = "first_" if only_first_path_to_root else "all_"
+        suffix = "tree_" if tree else "all_"
         suffix += layout
         fname = self.diagrams_dir / f"{self.filename}_{suffix}.gif"
 
@@ -399,10 +350,7 @@ class TopicGraphDiagram:
             duration=1)
         print("Done")
 
-
  
-
-    
     def _queryTopicsArticleDate(self, force:bool=False):
         q_template = Template("""
             PREFIX coy_ev: <https://schema.coypu.org/events#>
@@ -487,12 +435,10 @@ class TopicGraphDiagram:
         
         return g
     
-    def _dailys2DiGraph(self, dailys) -> nx.DiGraph:
-        # create diagram
-        g = nx.DiGraph()
 
-        root = "2022 Russian invasion of Ukraine"
-        g.add_node(root)
+    def _dailys2DiGraph(self, dailys) -> nx.DiGraph:
+        g = nx.DiGraph()
+        g.add_node(self.root)
 
         for year in sorted(dailys):
             for month in sorted(dailys[year]):
@@ -507,62 +453,70 @@ class TopicGraphDiagram:
                             g.add_node(pl)
                         if not g.has_edge(pl, l):
                             g.add_edge(pl, l)
-        
         return g
-    
-    def _dailys2DiGraphOnlyFirstPathToRoot(self, dailys) -> nx.DiGraph:
-        # create diagram
-        g = nx.DiGraph()
 
-        root = "2022 Russian invasion of Ukraine"
-        g.add_node(root)
+
+    def _dailys2DiGraph_DAG(self, dailys) -> nx.DiGraph:
+        g = nx.DiGraph()
+        g.add_node(self.root)
 
         for year in sorted(dailys):
             for month in sorted(dailys[year]):
                 for day in sorted(dailys[year][month]):
                     topics = dailys[year][month][day]
-                    self._addTopicsOnlyFirstPathToRoot(g,topics)
+                    self._add_edges_acyclic(g, topics)
         return g
     
-    def _addTopicsOnlyFirstPathToRoot(self, g, topics):
-        root = "2022 Russian invasion of Ukraine"
 
-        day_g = nx.DiGraph()
-        parents = {}
-        for topic in topics:
-            pl = topic["pl"]
-            l = topic["l"]
-
-            parents[l] = pl
-
-            day_g.add_edge(pl, l)
-        
+    def _add_edges_acyclic(self, g:nx.DiGraph, topics):
         new_nodes = []
-        
-        for layer in nx.bfs_layers(day_g, [n for n,d in day_g.in_degree() if d==0]):
-            for n in layer:
-                if n in parents:
-                    t = n
-                    pt = parents[n]
+        for topic in topics:
+            pt = topic["pl"]
+            t = topic["l"]
 
-                    if not g.has_node(t):
-                        new_nodes.append(t)
-                        g.add_node(t)
-                    if not g.has_node(pt):
-                        new_nodes.append(pt)
-                        g.add_node(pt)
-                    
-                    add_edge = False
-                    try:
-                        if not nx.has_path(g, root, t):
-                            add_edge = True
-                    except:
-                        # root still not present in graph
-                        add_edge = True
-                    if add_edge:
-                        g.add_edge(pt, t)
+            if t != pt and (
+                    g.has_node(t) and g.has_node(pt) and not (nx.has_path(g, t, pt) or nx.has_path(g, pt, t)) or
+                    not g.has_node(t) or 
+                    not g.has_node(pt)
+                ):
+                g.add_edge(pt,t)
+                new_nodes.append(t)
         
-        return new_nodes
+        return new_nodes 
+    
+    
+    def _dailys2Tree(self, dailys) -> nx.DiGraph:
+        # compute transitive reduction
+        temp_g = self._dailys2DiGraph_DAG(dailys)
+        tr_g = nx.transitive_reduction(temp_g)
+
+        g = nx.DiGraph()
+        g.add_node(self.root)
+
+        for year in sorted(dailys):
+            for month in sorted(dailys[year]):
+                for day in sorted(dailys[year][month]):
+                    topics = dailys[year][month][day]
+                    self._add_edges_forming_tree(g, tr_g, topics, self.root)
+        return g
+
+
+    def _add_edges_forming_tree(self, g:nx.DiGraph, transitive_reduction:nx.DiGraph, topics, root):
+        new_nodes = []
+        for topic in topics:
+            pt = topic["pl"]
+            t = topic["l"]
+            
+            if transitive_reduction.has_edge(pt, t) and not (g.has_node(root) and g.has_node(t) and nx.has_path(g, root, t)):
+                if not g.has_node(t):
+                    new_nodes.append(t)
+                if not g.has_node(pt):
+                    new_nodes.append(pt)
+
+                g.add_edge(pt,t)
+        
+        return new_nodes  
+
     
     def _addTopicsToGraph(self, g, topics):
         new_nodes = []
@@ -579,8 +533,6 @@ class TopicGraphDiagram:
             g.add_edge(pl, l)
         
         return new_nodes
-                    
-        
         
     
     def _getDailyNewTopics(self, force:bool=False, use_a_date=False) -> Dict:
@@ -643,13 +595,37 @@ class TopicGraphDiagram:
         return res
 
 if __name__ == "__main__":
-    m = ["February_2022", "March_2022", "April_2022", "May_2022", "June_2022", "July_2022", "August_2022"]
-    #m = ["February_2022"]
+    parser = argparse.ArgumentParser()
 
-    force = True
+    parser.add_argument("type",
+        choices=["gif", "fig", "pyvis"],
+        nargs='?',
+        default="gif")
+     
+    parser.add_argument("-f", '--force',
+        action='store_true', 
+        help="force")
+    
+    parser.add_argument("-t", '--tree',
+        action='store_true', 
+        help="force")
+    
+    parser.add_argument("-l", '--layout_algorithm',
+        action='store', 
+        choices=["kk", "sl", "fdp", "neato", "twopi"],
+        default="kk")
+    
+    args = parser.parse_args()
 
-    # TopicGraphDiagram(currenteventstokg_module_dir, m[0:1]).createDiagram(force)
-    TopicGraphDiagram(currenteventstokg_dir, m).createGif(force, "kk", True)
-    # TopicGraphDiagram(currenteventstokg_module_dir, "March_2022").createGifTest()
-    # TopicGraphDiagram(currenteventstokg_module_dir, "March_2022").createiGraphGif()
-    # TopicGraphDiagram(currenteventstokg_module_dir, m).createPyvisGraph(force)
+    m = graph_name_list(202202, 202208)
+    print(m)
+
+    if args.type == "gif":
+        TopicGraphDiagram(currenteventstokg_dir, m).createGif(args.force, args.layout_algorithm, args.tree)
+    elif args.type == "fig":
+        TopicGraphDiagram(currenteventstokg_dir, m).createDiagram(args.force, args.layout_algorithm, args.tree)
+    elif args.type == "pyvis":
+        TopicGraphDiagram(currenteventstokg_dir, m).createPyvisGraph(args.force, args.tree)
+
+    # old test, works but not used and finished:
+    # TopicGraphDiagram(currenteventstokg_dir, m[0:1]).createiGraphGif()

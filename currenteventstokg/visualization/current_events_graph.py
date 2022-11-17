@@ -12,7 +12,8 @@ from time import time
 from abc import ABC, abstractmethod
 from currenteventstokg import currenteventstokg_dir
 from multiprocessing import Pool
-from currenteventstokg.outputRdf import NIF, COY, CEV, WGS, GEO, WD, CRM, GN, SCHEMA, DCTERMS
+from currenteventstokg.outputRdf import NIF, COY, CEV, WGS, GEO, WD, CRM, GN, SCHEMA, DCTERMS,\
+                                        events_ns, contexts_ns, places_ns, osm_element_ns, point_ns, timespan_ns
 
 
 
@@ -28,6 +29,12 @@ def add_prefixes(g:Graph):
     g.namespace_manager.bind('schema', SCHEMA)
     g.namespace_manager.bind('dcterms', DCTERMS)
 
+    g.namespace_manager.bind('events', events_ns)
+    g.namespace_manager.bind('contexts', contexts_ns)
+    g.namespace_manager.bind('places', places_ns)
+    g.namespace_manager.bind('osm_elements', osm_element_ns)
+    g.namespace_manager.bind('points', point_ns)
+    g.namespace_manager.bind('timespans', timespan_ns)
 
 class CurrentEventsGraphABC(ABC):
     @abstractmethod

@@ -11,9 +11,11 @@ from pprint import pprint
 from string import Template
 from time import time
 from typing import Dict, List, Tuple, Union
+import argparse
 
 import imageio
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 import networkx as nx
 import numpy as np
 import pandas as pd
@@ -26,9 +28,7 @@ from shapely.geometry import (LineString, MultiLineString, MultiPoint,
 from shapely.wkt import load, loads
 from SPARQLWrapper import JSON, SPARQLWrapper
 from tqdm import tqdm
-
-months = ["January","February","March","April","May","June","July","August","September","October","November","December"]
-month2int = {m: i+1 for i,m in enumerate(months)}
+from currenteventstokg.etc import month2int, months, graph_name_list
 
 def loadGraph(ds_dir, glob_name):
     # ds_name = ["dataset_base.jsonld", "dataset_raw.jsonld","dataset_ohg.jsonld", "dataset_osm.jsonld"]
@@ -84,20 +84,21 @@ def pngs2gif(png_paths:List[Path], out_path:Path, frame_duration:float):
 
 class EventMap:
     def __init__(self, basedir, jsonld_base_graph_file_name):
-        self.basedir = basedir
         self.jsonld_base_graph_file_name = jsonld_base_graph_file_name
 
         prefix = jsonld_base_graph_file_name.split(".")[0]
         self.prefix_dmy = "_".join(prefix.split("_")[0:-1])
 
-        self.cache_dir = basedir / "./cache/gdfs/"
+        self.sub_dir = "event_map_diagram"
+
+        self.cache_dir = basedir / "cache" / self.sub_dir
         makedirs(self.cache_dir, exist_ok=True)
         
         self.wkt2id_path = self.cache_dir / "wkt2id.json"
 
-        self.resource_dir = basedir / "resources/"
+        self.resource_dir = basedir / "resources"
 
-        self.maps_output_dir = basedir / "./maps/"
+        self.maps_output_dir = basedir / "diagrams" / self.sub_dir
         makedirs(self.maps_output_dir, exist_ok=True)
 
         f_split = self.jsonld_base_graph_file_name.split("_")
@@ -124,7 +125,12 @@ class EventMap:
             #print("Columns:", gdf.columns)
 
             gdf.to_parquet(cache_path)
+
+        gdf = self._calculate_gdf_columns(gdf, no_ua)
         
+        self.month_gdf = gdf
+    
+    def _calculate_gdf_columns(self, gdf, no_ua=True):
         # calculate representative points
         rps = gdf["geometry"].representative_point()
 
@@ -195,11 +201,14 @@ class EventMap:
         gdf["layered_sum_log"] = np.log10(gdf["layered_sum"])
         gdf["sum_log"] = np.log10(gdf["sum"])
 
-        self.month_gdf = gdf
-        #print("Columns:", gdf.columns)
-    
+        print("Columns:", gdf.columns)
 
-    def createMonthMap(self, force=False, vmax=None, label="layered_sum"):        
+        return gdf
+
+
+    def createMonthMap(self, force=False, vmax=None, label="layered_sum"):  
+        print("Columns:", self.month_gdf.columns)
+
         fig = self._gdf2map(self.month_gdf, f"{self.month_str} {str(self.year)}", vmax, label)
         
         suffix = ""
@@ -217,7 +226,7 @@ class EventMap:
         return png_path
 
 
-    def createDayMap(self, day:int, force_query=False, vmax:int=None) -> Path:
+    def createDayMap(self, day:int, force_query=False, vmax:int=None, label="sum_log", no_ua=True) -> Path:
         cache_path =  self.cache_dir / f"{day}_{self.month_str}_{self.year}.parquet"
         
         if exists(cache_path):
@@ -232,31 +241,34 @@ class EventMap:
 
             gdf.to_parquet(cache_path)
         
+        gdf = self._calculate_gdf_columns(gdf, no_ua)
+        
         days_dir = self.maps_output_dir / f"{self.month_str}_{self.year}_{vmax}"
         makedirs(days_dir, exist_ok=True)
 
         filename = f"{str(self.year)}_{str(self.month)}_{str(day)}.png"
         
-        fig = self._gdf2map(gdf, f"{str(day)} {self.month_str} {str(self.year)}", vmax=vmax)
+        fig = self._gdf2map(gdf, f"{str(day)} {self.month_str} {str(self.year)}", vmax=vmax, label=label)
         fig.savefig(
             days_dir / filename,
             dpi=400,
             bbox_inches='tight',
         )
+        # plt.show()
 
         return days_dir / filename
     
 
-    def createMonthGif(self, vmax, force:bool=False):
+    def createMonthGif(self, vmax:int=None, force:bool=False, label="sum_log", no_ua=True):
         files = []
         for day in range(1,32):
-            f = self.createDayMap(day, force_query=force, vmax=vmax)
+            f = self.createDayMap(day, force_query=force, vmax=vmax, label=label, no_ua=no_ua)
             files.append(f)
         
         pngs2gif(files, self.maps_output_dir / f"{str(self.year)}_{str(self.month)}.gif", 1)
     
 
-    def _gdf2map(self, gdf, title, vmax:int=None, label="layered_sum"):
+    def _gdf2map(self, gdf, title, vmax:int=None, label="sum_log"):
         # import world_outline
         # gdf_world_outline = read_file(
         #     str(self.resource_dir / "ne_110m_admin_0_countries/ne_110m_admin_0_countries.shp")
@@ -286,29 +298,32 @@ class EventMap:
         #ua_geo = GeoSeries(ua_bounds)
         #ua_geo.boundary.plot(ax=ax)
 
-        print("pp", gdf.columns)
+        print(gdf.columns)
 
 
         if vmax == None:
             vmax = gdf[label].max()
+
+        kwds_dict = {
+            'label': "Number of Events",
+            'orientation': "horizontal",
+            "pad": 0.05,
+            "shrink": 0.7,
+            "fraction": 0.05,
+        }
 
         gdf.plot( # .loc[[i,i]]
             column=label,
             #column=sum_label,
             ax=ax, 
             legend=True, 
-            legend_kwds={
-                'label': "Number of Events",
-                'orientation': "horizontal",
-                "pad": 0.05,
-                "shrink": 0.7,
-                "fraction": 0.05,
-            },
+            legend_kwds=kwds_dict,
             vmin=0,
             vmax=vmax,
         )
-        #rps.plot(ax=ax)
-        #plt.show()
+        # plt.show()
+
+        print(ax.get_figure().get_axes())
         
         # generate labels if on log scale
         if label[-4:] == "_log":
@@ -318,9 +333,21 @@ class EventMap:
             ticks = np.log10(tick_labels)
             # round labels
             tick_labels = [str(x.round(2)) for x in tick_labels]
+            print(vmax, ticks, tick_labels)
             # apply
-            colourbar = ax.get_figure().get_axes()[1]
-            colourbar.set_xticks(ticks, tick_labels)
+            if len(ax.get_figure().get_axes()) > 1:
+                # if exists, is on 2nd slot
+                colorbar = ax.get_figure().get_axes()[1]
+                colorbar.set_xticks(ticks, labels=tick_labels)
+
+            else:
+                # if not, create one
+                colorbar = plt.colorbar(
+                    mappable=plt.cm.ScalarMappable(mcolors.Normalize(0,vmax)),
+                    ax=ax, 
+                    **kwds_dict,
+                )
+                colorbar.set_ticks(ticks, labels=tick_labels)
         
         return fig
 
@@ -481,6 +508,7 @@ def bulk_month_giffer(basedir:Path, base_files:List[str], force=False, sync_vmax
         em = EventMap(basedir, f)
         em.loadMonthData(force, no_ua)
         event_maps.append(em)
+        
         em_vmax = em.month_gdf[label].max()
         if em_vmax > vmax:
             vmax = em_vmax
@@ -489,11 +517,13 @@ def bulk_month_giffer(basedir:Path, base_files:List[str], force=False, sync_vmax
         vmax = None
     
     pngs = []
+    maps_output_dir = None
     for em in event_maps:
         png_path = em.createMonthMap(force, vmax, label)
         pngs.append(png_path)
+        maps_output_dir = em.maps_output_dir
     
-    out_path = basedir / "maps" / f"bulk_month_{label}_{no_ua}.gif"
+    out_path = maps_output_dir / f"bulk_month_{label}_{no_ua}.gif"
     pngs2gif(pngs, out_path, 1)
 
     
@@ -502,23 +532,70 @@ def bulk_month_giffer(basedir:Path, base_files:List[str], force=False, sync_vmax
 
 
 if __name__ == "__main__":
-    base_files = [
-        "February_2022_base.jsonld", "March_2022_base.jsonld", "April_2022_base.jsonld", 
-        "May_2022_base.jsonld", "June_2022_base.jsonld", "July_2022_base.jsonld", 
-        "August_2022_base.jsonld",
-    ]
-    #base_files = ["February_2022_base.jsonld"]
-    print(base_files)
+    parser = argparse.ArgumentParser()
 
-    force = True
+    parser.add_argument("-f", '--force',
+        action='store_true', 
+        help="force")
+    
+    parser.add_argument("-omm", '--one_month_map',
+        action='store',
+        type=str,
+        default=None,
+        help="eg February_2022")
+    
+    parser.add_argument("-omg", '--one_month_gif',
+        action='store',
+        type=str,
+        default=None,
+        help="eg February_2022")
+    
+    parser.add_argument("-vmax", '--vmax',
+        action='store',
+        type=int,
+        default=np.log10(30))
+    
+    parser.add_argument("-od", '--one_day',
+        action='store',
+        type=str,
+        default=None,
+        help="eg 2_February_2022")
+    
+    args = parser.parse_args()
 
-    # m = EventMap(currenteventstokg_module_dir, "February_2022_base.jsonld")
-    # m.loadMonthData(force, True)
+    no_whole_ua = True
+    label = "sum_log"
 
-    # m.createMonthMap(force, label="sum_log")
-    #m.createDayMap(29, force_query=force)
-    # m.createMonthGif(30, force)
+    if args.one_month_map:
+        m = EventMap(currenteventstokg_dir, f"{args.one_month_map}_base.jsonld")
+        m.loadMonthData(args.force, no_whole_ua)
 
-    bulk_month_giffer(currenteventstokg_dir, base_files, force, sync_vmax=True, label="sum_log", no_ua=True)
+        m.createMonthMap(args.force, label=label)
+
+    elif args.one_month_gif:
+        m = EventMap(currenteventstokg_dir, f"{args.one_month_gif}_base.jsonld")
+        m.loadMonthData(args.force, no_whole_ua)
+
+        m.createMonthGif(force=args.force, vmax=args.vmax, label=label, no_ua=no_whole_ua)
+
+    elif args.one_day:
+        day, month_year = args.one_day.split("_", 1)
+
+        m = EventMap(currenteventstokg_dir, f"{month_year}_base.jsonld")
+        m.loadMonthData(args.force, no_whole_ua)
+
+        m.createDayMap(int(day), args.force, vmax=args.vmax, label=label, no_ua=no_whole_ua)
+
+    else:
+        m = graph_name_list(202202, 202208)
+        base_files = [f"{gn}_base.jsonld" for gn in m]
+        print(base_files)
+
+        bulk_month_giffer(currenteventstokg_dir, base_files, args.force, sync_vmax=True, label=label, no_ua=no_whole_ua)
+
+
+
+    
+
     
     

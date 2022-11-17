@@ -8,17 +8,20 @@ from pathlib import Path
 from pprint import pprint
 from string import Template
 from typing import Dict, List, Optional, Tuple, Union
+import argparse
 
 import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
 
-from .current_events_diagram import CurrentEventDiagram
+from .current_events_diagram import CurrentEventBarChart
 from .current_events_graph import CurrentEventsGraph
+from ..etc import graph_name_list
+from currenteventstokg import currenteventstokg_dir
 
-class NumEventsPerMonthAverageDiagram(CurrentEventDiagram):
+class NumEventsPerMonthAverageDiagram(CurrentEventBarChart):
     def __init__(self, basedir, graph_names:List[str]):
-        super().__init__(basedir, "event_num_per_month_avg", graph_names)
+        super().__init__(basedir, "event_num_ua_per_month_avg", graph_names)
 
     def createDiagram(self, force=True):
         q = """
@@ -72,90 +75,80 @@ class NumEventsPerMonthAverageDiagram(CurrentEventDiagram):
         return fig
 
 
-class NumEventsPerMonthDiagram(CurrentEventDiagram):
+class NumEventsPerMonthDiagram(CurrentEventBarChart):
     def __init__(self, basedir, graph_names:List[str]):
-        super().__init__("event_num_per_month", graph_names)
+        super().__init__("event_num_ua_per_month", graph_names)
 
     def createDiagram(self, force=True):
+        cache_path = self.cache_dir / f"{self.filename}.json"
+        if exists(cache_path) and not force:
+            data = self.__load_json(cache_path)
+        else:
+            q = """
+                PREFIX coy_ev: <https://schema.coypu.org/events#>
+                PREFIX gn: <https://www.geonames.org/ontology#>
+                PREFIX crm: <http://www.cidoc-crm.org/cidoc-crm/>
+                PREFIX nif: <http://persistence.uni-leipzig.org/nlp2rdf/ontologies/nif-core#>
+                SELECT DISTINCT ?year ?month (COUNT(?e) as ?num) WHERE{
+                    ?e  (crm:P117_occurs_during)*/gn:wikipediaArticle <https://en.wikipedia.org/wiki/2022_Russian_invasion_of_Ukraine>;
+                        a crm:E5_Event;
+                        crm:P1_is_identified_by ?c;
+                        coy_ev:hasMentionDate ?date.
+                    ?c a nif:Context.
+                    BIND(MONTH(?date) as ?month).
+                    BIND(YEAR(?date) as ?year).
+                } GROUP BY ?year ?month"""
 
-        q = """
-            PREFIX coy_ev: <https://schema.coypu.org/events#>
-            PREFIX gn: <https://www.geonames.org/ontology#>
-            PREFIX crm: <http://www.cidoc-crm.org/cidoc-crm/>
-            PREFIX nif: <http://persistence.uni-leipzig.org/nlp2rdf/ontologies/nif-core#>
-            SELECT DISTINCT ?year ?month (COUNT(?e) as ?num) WHERE{
-                ?e  (crm:P117_occurs_during)*/gn:wikipediaArticle <https://en.wikipedia.org/wiki/2022_Russian_invasion_of_Ukraine>;
-                    a crm:E5_Event;
-                    crm:P1_is_identified_by ?c;
-                    coy_ev:hasMentionDate ?date.
-                ?c a nif:Context.
-                BIND(MONTH(?date) as ?month).
-                BIND(YEAR(?date) as ?year).
-            } GROUP BY ?year ?month"""
+            print(q)
+            # fpaths = [basedir / f"{gn}_base.jsonld" for gn in self.graph_names]
+            # fpaths = [
+            #     Path("../current-events-to-kg/dataset/February_2022_base.jsonld"), 
+            #     Path("../current-events-to-kg/dataset/March_2022_base.jsonld")
+            # ]
+            # n = CurrentEventsGraph(filepaths=fpaths)
+            # res = n.query(q)
+            res_list = self.graph.query(q)
 
-        print(q)
-        # fpaths = [basedir / f"{gn}_base.jsonld" for gn in self.graph_names]
-        # fpaths = [
-        #     Path("../current-events-to-kg/dataset/February_2022_base.jsonld"), 
-        #     Path("../current-events-to-kg/dataset/March_2022_base.jsonld")
-        # ]
-        # n = CurrentEventsGraph(filepaths=fpaths)
-        # res = n.query(q)
-        res_list = self.graph.query(q)
+            data = {}
+            for res in res_list:
+                for row in res:
+                    month = int(row["month"])
+                    year = int(row["year"])
+                    num = int(row["num"])
 
-        data = {}
-        for res in res_list:
-            for row in res:
-                month = int(row["month"])
-                year = int(row["year"])
-                num = int(row["num"])
-
-                if year not in data:
-                    data[year] = np.full(12, np.nan)
-                data[year][month-1] = num
+                    if year not in data:
+                        data[year] = np.full(12, np.nan)
+                    data[year][month-1] = num
         
-        fig = self.createPlot(data)
+        print(data)
+        
+        fig = self._create_bar_chart_per_month(
+            data, 
+            None, 
+            "Month",
+            "Number of events",
+        )
         fig.savefig(
-            self.diagrams_dir / f"{self.filename}.png",
-            dpi=400,
+            self.diagrams_dir / f"{self.filename}.svg",
+            #dpi=400,
+            bbox_inches="tight",
         )
         plt.show()
-        
-    
-    def createPlot(self, data):
-        fig, ax = plt.subplots()
-        
-        keys = sorted(list(data.keys()))
-        y = []
-        x = []
-        labels = [None, 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-        for year in keys:
-            for month in range(12):
-                if np.isnan(data[year][month]):
-                    continue
-                y.append(data[year][month])
-                if month == 0 or len(x) == 0:
-                    x.append(f"{labels[month+1]} {year-2000}")
-                else:
-                    x.append(f"{labels[month+1]}")
-
-        ax.bar(x, y)
-        ax.set_title("Number of Events about the 2022 Ukraine Invasion")
-        ax.set_ylabel("Number of Events")
-        ax.set_xlabel("Month")
-        
-        return fig
-
-
-
 
 
 if __name__ == "__main__":
-    basedir, _ = split(abspath(__file__))
-    basedir = Path(basedir)
-    m = ["February_2022", "March_2022", "April_2022", "May_2022", "June_2022", "July_2022", "August_2022"]
+    graphs = graph_name_list(202202, 202208)
+    print(graphs)
 
-    force = False
+    parser = argparse.ArgumentParser()
+     
+    parser.add_argument("-f", '--force',
+        action='store_true', 
+        help="force")
+    
+    args = parser.parse_args()
 
-    # NumEventsPerMonthAverageDiagram(basedir, m).createDiagram()
-    NumEventsPerMonthDiagram(basedir, m).createDiagram()
+    plt.style.use(currenteventstokg_dir / "resources" / "style.mplstyle")
+
+    # NumEventsPerMonthAverageDiagram(currenteventstokg_dir, graphs).createDiagram()
+    NumEventsPerMonthDiagram(currenteventstokg_dir, graphs).createDiagram(args.force)

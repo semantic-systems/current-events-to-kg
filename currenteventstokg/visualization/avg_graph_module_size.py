@@ -37,19 +37,6 @@ class AverageGraphModuleSize(CurrentEventBarChart):
         with open(file_path, mode='w', encoding="utf-8") as f:
             dump(obj, f)
 
-
-    def createDiagram(self, force=True):
-        fig, (ax1, ax2) = plt.subplots(1,2, layout="constrained")
-
-        self.create_triple_num_diagram(ax1, force)
-        self.create_file_size_diagram(ax2, force)
-        
-        fig.savefig(
-            self.diagrams_dir / f"{self.filename}.svg",
-            #dpi=400,
-        )
-        plt.show()
-    
     
     def create_triple_num_diagram(self, ax, force=False):
         data_cache_path = self.cache_dir / f"size.json"
@@ -83,10 +70,11 @@ class AverageGraphModuleSize(CurrentEventBarChart):
         self._create_bar_chart_from_data(
             ax, 
             data, 
-            "Average Amount of Triples in Graph Modules", 
-            "Graph Modules", 
-            "Average Amount of Triples"
+            None, 
+            "Graph modules", 
+            "Average amount of triples"
         )
+
 
     def create_file_size_diagram(self, ax, force=False):
         data = {}
@@ -101,10 +89,25 @@ class AverageGraphModuleSize(CurrentEventBarChart):
         self._create_bar_chart_from_data(
             ax, 
             data, 
-            "Average File Size of Graph Modules", 
-            "Graph Modules", 
-            "Average File Size in MB"
+            None, 
+            "Graph modules", 
+            "Average file size in MB"
         )
+    
+
+    def createDiagram(self, force=True):
+        fig, (ax1, ax2) = plt.subplots(1,2, layout="constrained", figsize=(6,3))
+
+        self.create_triple_num_diagram(ax1, force)
+        self.create_file_size_diagram(ax2, force)
+        
+        fig.savefig(
+            self.diagrams_dir / f"{self.filename}.svg",
+            #dpi=400,
+        )
+        plt.show()
+
+
 
 if __name__ == "__main__":
     graphs = graph_name_list(202001, 202208)
@@ -124,9 +127,9 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
 
-
     plt.style.use(currenteventstokg_dir / "resources" / "style.mplstyle")
     AverageGraphModuleSize(graphs, args.num_processes).createDiagram(args.force)
+    
 
 
     

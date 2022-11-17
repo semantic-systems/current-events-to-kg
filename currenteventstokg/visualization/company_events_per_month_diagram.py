@@ -34,27 +34,20 @@ class NumCompanyEventsPerMonthDiagram(CurrentEventBarChart, Sleeper):
         self.num_processes = num_processes
 
         self.is_class_company_subclass_cache_path = currenteventstokg_dir / "cache" / "is_class_company_subclass.json"
-        self.is_class_company_subclass_cache = self.__loadJson(self.is_class_company_subclass_cache_path)
+        self.is_class_company_subclass_cache = self._load_json(self.is_class_company_subclass_cache_path)
 
         # save caches after termination
         register(self.__saveCaches)
     
-    def __saveCaches(self):
-        self.__saveJson(self.is_class_company_subclass_cache_path, self.is_class_company_subclass_cache)
 
-    def __loadJson(self, file_path):
-        with open(file_path, mode='r', encoding="utf-8") as f:
-            return load(f)
-    
-    def __saveJson(self, file_path, dic):
-        with open(file_path, mode='w', encoding="utf-8") as f:
-            dump(dic, f)
+    def __saveCaches(self):
+        self._dump_json(self.is_class_company_subclass_cache_path, self.is_class_company_subclass_cache)
 
 
     def createDiagram(self, force=True):
         qres_cache_path = self.cache_dir / f"{self.filename}_qres.json"
         if exists(qres_cache_path) and not force:
-            res_list = self.__loadJson(qres_cache_path)
+            res_list = self._load_json(qres_cache_path)
         else:
             q = """
                 PREFIX wdt: <http://www.wikidata.org/prop/direct/>
@@ -80,7 +73,7 @@ class NumCompanyEventsPerMonthDiagram(CurrentEventBarChart, Sleeper):
 
             print(q)
             res_list = self.graph.query(q, self.num_processes)
-            self.__saveJson(qres_cache_path, res_list)
+            self._dump_json(qres_cache_path, res_list)
 
         data = {}
         event_texts = set()
@@ -122,13 +115,14 @@ class NumCompanyEventsPerMonthDiagram(CurrentEventBarChart, Sleeper):
 
         fig = self._create_bar_chart_per_month(
             data, 
-            "Number of Events with Link to Company per Month",
+            None,
             "Month",
-            "Number of Events",
+            "Number of events",
         )
         fig.savefig(
             self.diagrams_dir / f"{self.filename}.svg",
             #dpi=400,
+            bbox_inches="tight",
         )
         plt.show()
 
@@ -175,6 +169,7 @@ class NumCompanyEventsPerMonthDiagram(CurrentEventBarChart, Sleeper):
         
         print(f"Number of Entites (Company or subclass/similar)  = {len(companies)}")
     
+
     def _is_company_subclass(self, entity_type:str):
         if entity_type in self.is_class_company_subclass_cache:
             return self.is_class_company_subclass_cache[entity_type]
@@ -190,6 +185,7 @@ ASK{{
             self.is_class_company_subclass_cache[entity_type] = isCompany
             self.sleepUntilNewRequestLegal(self.wd_sleep_time)
             return isCompany
+
 
 if __name__ == "__main__":
     graphs = graph_name_list(202001, 202208)
@@ -235,6 +231,7 @@ if __name__ == "__main__":
     locale.setlocale(locale.LC_ALL,'en_US.UTF-8')
     plt.rcParams['axes.formatter.use_locale'] = True
     plt.style.use(currenteventstokg_dir / "resources" / "style.mplstyle")
+
     NumCompanyEventsPerMonthDiagram(graphs, args.wikidata_endpoint, args.query_sleep_time, args.num_processes).createDiagram(args.force)
     #NumCompanyEventsPerMonthDiagram(graphs, args.wikidata_endpoint, args.query_sleep_time, args.num_processes).countCompanies(args.force)
 
