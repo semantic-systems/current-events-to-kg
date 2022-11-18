@@ -17,31 +17,22 @@ from wordcloud import WordCloud
 
 from .. import currenteventstokg_dir
 from ..etc import graph_name_list, months
-from .current_events_diagram import CurrentEventBarChart
+from .current_events_diagram import CurrentEventDiagram
 from .current_events_graph import CurrentEventsGraphSplit, SPARQLEndpoint, SPARQLEndpoint
 
 from..sleeper import Sleeper
 
 
-
-class AverageGraphModuleSize(CurrentEventBarChart):
+class AverageGraphModuleSize(CurrentEventDiagram):
     def __init__(self, graph_names:List[str], num_processes:int=1):
         super().__init__(basename(__file__).split(".")[0], graph_names, ["base"], CurrentEventsGraphSplit)
         self.num_processes = num_processes
-
-    def __loadJson(self, file_path):
-        with open(file_path, mode='r', encoding="utf-8") as f:
-            return load(f)
-    
-    def __saveJson(self, file_path, obj):
-        with open(file_path, mode='w', encoding="utf-8") as f:
-            dump(obj, f)
 
     
     def create_triple_num_diagram(self, ax, force=False):
         data_cache_path = self.cache_dir / f"size.json"
         if exists(data_cache_path) and not force:
-            data = self.__loadJson(data_cache_path)
+            data = self._load_json(data_cache_path)
         else:
             data = {}
             for graph_module in ["base", "ohg", "osm", "raw"]:
@@ -65,7 +56,7 @@ class AverageGraphModuleSize(CurrentEventBarChart):
                 
                 data[graph_module] /= len(res_list)
             
-            self.__saveJson(data_cache_path, data)
+            self._dump_json(data_cache_path, data)
         
         self._create_bar_chart_from_data(
             ax, 

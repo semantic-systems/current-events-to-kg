@@ -14,12 +14,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
 
-from .current_events_diagram import CurrentEventBarChart
+from .current_events_diagram import CurrentEventDiagram
 from .current_events_graph import CurrentEventsGraph
 from ..etc import graph_name_list
 from currenteventstokg import currenteventstokg_dir
 
-class NumEventsPerMonthAverageDiagram(CurrentEventBarChart):
+class NumEventsPerMonthAverageDiagram(CurrentEventDiagram):
     def __init__(self, basedir, graph_names:List[str]):
         super().__init__(basedir, "event_num_ua_per_month_avg", graph_names)
 
@@ -75,7 +75,7 @@ class NumEventsPerMonthAverageDiagram(CurrentEventBarChart):
         return fig
 
 
-class NumEventsPerMonthDiagram(CurrentEventBarChart):
+class NumEventsPerMonthDiagram(CurrentEventDiagram):
     def __init__(self, basedir, graph_names:List[str]):
         super().__init__("event_num_ua_per_month", graph_names)
 

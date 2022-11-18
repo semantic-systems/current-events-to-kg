@@ -17,16 +17,16 @@ from wordcloud import WordCloud
 
 from .. import currenteventstokg_dir
 from ..etc import graph_name_list, months
-from .current_events_diagram import CurrentEventBarChart
+from .current_events_diagram import CurrentEventDiagram
 from .current_events_graph import CurrentEventsGraphSplit, SPARQLEndpoint, SPARQLEndpoint
 
 from..sleeper import Sleeper
 
 
 
-class NumCompanyEventsPerMonthDiagram(CurrentEventBarChart, Sleeper):
+class NumCompanyEventsPerMonthDiagram(CurrentEventDiagram, Sleeper):
     def __init__(self, graph_names:List[str], wikidata_endpoint:str, wd_sleep_time:float=2.0, num_processes:int=1):
-        CurrentEventBarChart.__init__(self, "company_events_per_month", graph_names, ["base", "ohg"], CurrentEventsGraphSplit)
+        CurrentEventDiagram.__init__(self, "company_events_per_month", graph_names, ["base", "ohg"], CurrentEventsGraphSplit)
         Sleeper.__init__(self)
 
         self.wikidata = SPARQLEndpoint(wikidata_endpoint)

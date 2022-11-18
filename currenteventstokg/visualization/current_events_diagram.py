@@ -15,12 +15,9 @@ from currenteventstokg.etc import month2int, months
 
 from .current_events_graph import CurrentEventsGraphSplit, CurrentEventsGraphABC
 
-class CurrentEventDiagram():
-    def __init__(self, sub_dir_name:str, graph_names:List[str], graph_modules=["base"], graph_class:CurrentEventsGraphABC=CurrentEventsGraphSplit):
-        self.graph_names = graph_names # need to be sorted with first one first!
-        self.graph_class = graph_class
-
-        self.filename = f"{self.graph_names[0]}_{self.graph_names[-1]}"
+class Diagram():
+    def __init__(self, sub_dir_name:str, diagram_name:str):
+        self.filename = diagram_name
 
         self.cache_dir = currenteventstokg_dir / "cache" / sub_dir_name
         makedirs(self.cache_dir, exist_ok=True)
@@ -28,11 +25,6 @@ class CurrentEventDiagram():
         self.diagrams_dir = currenteventstokg_dir / "diagrams/" / sub_dir_name
         makedirs(self.diagrams_dir, exist_ok=True)
 
-        self._load_graph(graph_names, graph_modules)
-    
-    def _load_graph(self, graph_names, graph_modules):
-        self.graph = self.graph_class(graph_names=graph_names, graph_modules=graph_modules)
-    
     def _load_json(self, file_path):
         with open(file_path, mode='r', encoding="utf-8") as f:
             return json.load(f)
@@ -40,12 +32,7 @@ class CurrentEventDiagram():
     def _dump_json(self, file_path, obj):
         with open(file_path, mode='w', encoding="utf-8") as f:
             json.dump(obj, f)
-
-
-class CurrentEventBarChart(CurrentEventDiagram):
-    def __init__(self, sub_dir_name:str, graph_names:List[str], graph_modules=["base"], graph_class:CurrentEventsGraphABC=CurrentEventsGraphSplit):
-        super().__init__(sub_dir_name, graph_names, graph_modules, graph_class)
-
+    
     def _create_bar_chart_per_month(self, data, title:str, x_label:str, y_label:str):
         fig, ax = plt.subplots(constrained_layout=True)
         
@@ -99,3 +86,23 @@ class CurrentEventBarChart(CurrentEventDiagram):
         ax.set_title(title)
         ax.set_ylabel(f"\\textbf{{{y_label}}}")
         ax.set_xlabel(f"\\textbf{{{x_label}}}")
+
+class CurrentEventDiagram(Diagram):
+    def __init__(self, sub_dir_name:str, graph_names:List[str], graph_modules=["base"], graph_class:CurrentEventsGraphABC=CurrentEventsGraphSplit):
+        self.graph_names = graph_names # need to be sorted with first one first!
+        self.graph_class = graph_class
+
+        diagram_name = f"{self.graph_names[0]}_{self.graph_names[-1]}"
+        super().__init__(sub_dir_name, diagram_name)
+
+        self._load_graph(graph_names, graph_modules)
+    
+    def _load_graph(self, graph_names, graph_modules):
+        self.graph = self.graph_class(graph_names=graph_names, graph_modules=graph_modules)
+
+
+class CurrentEventBarChart(CurrentEventDiagram):
+    def __init__(self, sub_dir_name:str, graph_names:List[str], graph_modules=["base"], graph_class:CurrentEventsGraphABC=CurrentEventsGraphSplit):
+        super().__init__(sub_dir_name, graph_names, graph_modules, graph_class)
+
+    
