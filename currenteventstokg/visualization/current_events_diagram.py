@@ -32,19 +32,25 @@ class Diagram():
     def _dump_json(self, file_path, obj):
         with open(file_path, mode='w', encoding="utf-8") as f:
             json.dump(obj, f)
-    
-    def _create_bar_chart_per_month(self, data, title:str, x_label:str, y_label:str):
-        fig, ax = plt.subplots(constrained_layout=True)
+
+    def __create_plot_per_month(self, data:Union[Dict, List[Dict]], title:str, 
+            x_label:str, y_label:str, plot_func_name, plot_func_kwds:Dict, ax:plt.Axes, legend_labels=None):   
         
-        keys = sorted(list(data.keys()))
-        x,y = [],[]
-        for year in keys:
-            for month in range(12):
-                if not np.isnan(data[year][month]):
-                    y.append(data[year][month])
-                    x.append(datetime.datetime(int(year), month+1, 1))
-                    
-        locale.setlocale(locale.LC_TIME,'en_US.UTF-8')
+        if not isinstance(data, List):
+            data = [data]
+        
+        xy_list = []
+        for i, data_dict in enumerate(data):
+            keys = sorted(list(data_dict.keys()))
+            x,y = [],[]
+            for year in keys:
+                for month in range(12):
+                    if month in data_dict[year] and not np.isnan(data_dict[year][month]):
+                        y.append(data_dict[year][month])
+                        x.append(datetime.datetime(int(year), month+1, 1))
+            xy_list.append((x,y))
+                        
+            locale.setlocale(locale.LC_TIME,'en_US.UTF-8')
         
         if len(keys) > 1:
             # multiple years span
@@ -65,13 +71,48 @@ class Diagram():
 
             ax.minorticks_off()
 
-        ax.bar(x, y,
-            width=25
-        )
+        for i, (x,y) in enumerate(xy_list):
+            if legend_labels:
+                label = legend_labels[i]
+            else:
+                label = None
+            
+            plot_f = getattr(ax, plot_func_name)
+            plot_f(x, y, **plot_func_kwds, label=label)
+        
+        if legend_labels:
+            ax.legend()
+
         ax.set_title(title)
         ax.set_ylabel(f"\\textbf{{{y_label}}}")
         ax.set_xlabel(f"\\textbf{{{x_label}}}")
+
+
+    def _create_bar_chart_per_month(self, data, title:str, x_label:str, y_label:str, ax:plt.Axes=None, legend_labels:List=None):
+        if not ax:
+            fig, ax = plt.subplots(constrained_layout=True)
+        else:
+            fig = None
         
+        kwds = {
+            "width": 25
+        }
+
+        self.__create_plot_per_month(data, title, x_label, y_label, "bar", kwds, ax, legend_labels=legend_labels)
+
+        return fig
+
+
+    def _create_plot_per_month(self, data, title:str, x_label:str, y_label:str, ax:plt.Axes=None, legend_labels:List=None):
+        if not ax:
+            fig, ax = plt.subplots(constrained_layout=True)
+        else:
+            fig = None
+
+        kwds = {}
+
+        self.__create_plot_per_month(data, title, x_label, y_label, "plot", kwds, ax, legend_labels=legend_labels)
+
         return fig
 
 
@@ -99,10 +140,3 @@ class CurrentEventDiagram(Diagram):
     
     def _load_graph(self, graph_names, graph_modules):
         self.graph = self.graph_class(graph_names=graph_names, graph_modules=graph_modules)
-
-
-class CurrentEventBarChart(CurrentEventDiagram):
-    def __init__(self, sub_dir_name:str, graph_names:List[str], graph_modules=["base"], graph_class:CurrentEventsGraphABC=CurrentEventsGraphSplit):
-        super().__init__(sub_dir_name, graph_names, graph_modules, graph_class)
-
-    
