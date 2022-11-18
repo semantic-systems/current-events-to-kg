@@ -56,7 +56,10 @@ class WikidataService(Sleeper):
         result = {}
         query = False
         first = True
-        q = q = "PREFIX wd: <http://www.wikidata.org/entity/>\nSELECT DISTINCT ?e ?l WHERE{\n"
+        q = """PREFIX wd: <http://www.wikidata.org/entity/>
+        PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+SELECT DISTINCT ?e ?l WHERE{\n"""
+
         for eURI in entityURIs:
             eid = eURI.split("/")[-1]
             if not self.args.ignore_wikidata_label_cache and eid in self.labelCache:
@@ -75,10 +78,9 @@ class WikidataService(Sleeper):
     ?e rdfs:label ?l.
 }""").substitute(e=eid)
         
-        
         if query:
             q += "\nFILTER(LANG(?l) = \"en\") .\n}"
-
+            
             self.sparql.setQuery(q)
             self.sparql.setReturnFormat(JSON)
 
