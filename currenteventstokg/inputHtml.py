@@ -5,6 +5,7 @@ import os.path
 from pathlib import Path
 import re
 from typing import Optional
+from urllib.error import URLError
 
 import requests
 
