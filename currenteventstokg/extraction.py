@@ -900,7 +900,7 @@ class Extraction:
         
         hits, misses, maxsize, currsize = self.__getArticleFromUrlIfArticle.cache_info()
         print("Article cache info: hits=", hits, "misses=", misses, "maxsize=", maxsize, "currsize=", currsize)
-        self.analytics.report_cache_stats(hits, misses)
+        self.analytics.report_cache_stats(hits, misses, currsize)
 
         return
 

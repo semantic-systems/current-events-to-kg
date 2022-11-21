@@ -130,6 +130,7 @@ class Analytics:
         self.numArticlesWithFalcon2LocationArticle = Amount()
         self.numArticleCacheHits = Amount()
         self.numArticleCacheMisses = Amount()
+        self.numArticleCacheCachedArticles = Amount()
         self.numTopics = Amount()
         self.numTopicsWithLocation = Amount()
         self.numTopicsWithType = Amount()
@@ -168,6 +169,7 @@ class Analytics:
         self.monthStartTime = 0
         self.last_article_cache_hits = 0
         self.last_article_cache_misses = 0
+        self.last_article_cache_currsize = 0
 
 
         self.development_analytics_vars = ["dictTopicInfoboxLabels", "dictTopicInfoboxTemplates", 
@@ -203,11 +205,13 @@ class Analytics:
     def monthEnd(self):
         self.avgMonthTime.add_value((time() - self.monthStartTime)/60)
     
-    def report_cache_stats(self, hits:int, misses:int):
+    def report_cache_stats(self, hits:int, misses:int, currsize:int):
         self.numArticleCacheHits += (hits - self.last_article_cache_hits)
         self.numArticleCacheMisses += (misses - self.last_article_cache_misses)
+        self.numArticleCacheCachedArticles += (currsize - self.last_article_cache_currsize)
         self.last_article_cache_hits = hits
         self.last_article_cache_misses = misses
+        self.last_article_cache_currsize = currsize
 
 
     def __printTemplateVars(self, width, stream=stdout):
