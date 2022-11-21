@@ -228,7 +228,9 @@ SELECT DISTINCT ?osmrelid ?osmobj WHERE {
         for e_uri in entitys:
             eid = e_uri.rsplit("/",1)[-1]
             if not self.args.ignore_wikidata2wikipedia_cache and eid in self.wd2wp_cache:
-                result[eid] = self.wd2wp_cache[eid]
+                cached_value = self.wd2wp_cache[eid]
+                if cached_value != None:
+                    result[eid] = cached_value
             else:
                 q = Template("""PREFIX wd: <http://www.wikidata.org/entity/>
 PREFIX schema: <http://schema.org/>
@@ -243,11 +245,16 @@ SELECT DISTINCT ?a WHERE{
                 
                 res = self.__queryAndConvertThreeTrysOn110()
 
-                for row in res["results"]["bindings"]:
-                    article_url = row["a"]["value"]
+                if len(res["results"]["bindings"]) > 0:
+                    for row in res["results"]["bindings"]:
+                        article_url = row["a"]["value"]
 
-                    result[eid] = article_url
-                    self.wd2wp_cache[eid] = article_url
+                        result[eid] = article_url
+                        self.wd2wp_cache[eid] = article_url
+                else:
+                    # no article exist for this wd entity
+                    self.wd2wp_cache[eid] = None
+
             
         return result        
 
