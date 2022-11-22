@@ -19,19 +19,17 @@ from .objects.topic import Topic
 # data under https://data.coypu.org/ENTITY-TYPE/DATA-SOURCE/ID
 events_ns = Namespace("https://data.coypu.org/event/wikipedia-current-events/")
 contexts_ns = Namespace("https://data.coypu.org/context/wikipedia-current-events/")
-places_ns = Namespace("https://data.coypu.org/place/wikipedia-current-events/")
+locations_ns = Namespace("https://data.coypu.org/location/wikipedia-current-events/")
 osm_element_ns = Namespace("https://data.coypu.org/osmelement/wikipedia-current-events/")
 point_ns = Namespace("https://data.coypu.org/point/wikipedia-current-events/")
-timespan_ns = Namespace("https://data.coypu.org/time-span/wikipedia-current-events/")
+timespan_ns = Namespace("https://data.coypu.org/timespan/wikipedia-current-events/")
 
 COY = Namespace("https://schema.coypu.org/global#")
-CEV = Namespace("https://schema.coypu.org/events#")
 NIF = Namespace("http://persistence.uni-leipzig.org/nlp2rdf/ontologies/nif-core#")
 SEM = Namespace("http://semanticweb.cs.vu.nl/2009/11/sem/")
 WGS = Namespace("http://www.w3.org/2003/01/geo/wgs84_pos#")
 GEO = Namespace("http://www.opengis.net/ont/geosparql#")
 WD = Namespace("http://www.wikidata.org/entity/")
-CRM = Namespace("http://www.cidoc-crm.org/cidoc-crm/")
 GN = Namespace("https://www.geonames.org/ontology#")
 SCHEMA = Namespace("https://schema.org/")
 DCTERMS = Namespace("http://purl.org/dc/terms/")
@@ -98,7 +96,7 @@ class OutputRdf:
     
     def __get_place_uri(self, article:Article) -> URIRef:
         suffix = article.url.rsplit('/', 1)[-1]
-        uri = places_ns[suffix]
+        uri = locations_ns[suffix]
         return uri
     
     def __get_context_uri(self, event:Event) -> URIRef:
@@ -144,41 +142,46 @@ class OutputRdf:
     
     
     def __addCoordinates(self, graph:Graph, parentUri:URIRef, coordinates: list[float]):
+        # add coords via wgs:Point
         puri = self.__get_point_uri(coordinates)
-        graph.add((parentUri, CEV.hasCoordinates, puri))
+        graph.add((parentUri, COY.hasLocation, puri))
         graph.add((puri, RDF.type, WGS.Point))
         graph.add((puri, WGS.lat, Literal(str(coordinates[0]), datatype=XSD.float)))
         graph.add((puri, WGS.long, Literal(str(coordinates[1]), datatype=XSD.float)))
+
+        # add coords directly for compatibility
+        graph.add((parentUri, COY.hasLatitude, Literal(str(coordinates[0]), datatype=XSD.decimal)))
+        graph.add((parentUri, COY.hasLongitude, Literal(str(coordinates[1]), datatype=XSD.decimal)))
     
 
     def __addOsmElement(self, target:URIRef, osmElement:OSMElement):
         graph = self.graphs["osm"]
         osmuri = self.__get_osm_uri(osmElement)
         if osmElement.osmType or osmElement.osmId or osmElement.wkt:
-            graph.add((target, CEV.hasOsmElement, osmuri))
-            graph.add((osmuri, RDF.type, CEV.OsmElement))
+            graph.add((target, COY.hasOsmElement, osmuri))
+            graph.add((osmuri, RDF.type, COY.OsmElement))
             if osmElement.osmType:
-                graph.add((osmuri, CEV.hasOsmType, Literal(str(osmElement.osmType), datatype=XSD.string)))
+                graph.add((osmuri, COY.hasOsmType, Literal(str(osmElement.osmType), datatype=XSD.string)))
             if osmElement.osmId:
-                graph.add((osmuri, CEV.hasOsmId, Literal(str(osmElement.osmId), datatype=XSD.integer)))
+                graph.add((osmuri, COY.hasOsmId, Literal(str(osmElement.osmId), datatype=XSD.integer)))
             if osmElement.wkt:
-                graph.add((osmuri, CEV.hasOsmWkt, Literal(str(osmElement.wkt), datatype=GEO.wktLiteral)))
+                graph.add((osmuri, GEO.asWKT, Literal(str(osmElement.wkt), datatype=GEO.wktLiteral)))
     
 
     def __add_place(self, graph:Graph, article:Article) -> URIRef:
         place_uri = self.__get_place_uri(article)
-        graph.add((place_uri, RDF.type, CRM.E53_Place))
+        graph.add((place_uri, RDF.type, COY.Location))
 
         # only use one row as the location (should only be one)
         location_rows = [ibr for ibr in article.infobox_rows.values() if isinstance(ibr, InfoboxRowLocation)]
         location_row = location_rows[0] if len(location_rows) > 0 else None
         if location_row:
-            graph.add((place_uri, CRM.P1_is_identified_by, Literal(str(location_row.value), datatype=XSD.string)))
+            graph.add((place_uri, COY.isIdentifiedBy, Literal(str(location_row.value), datatype=XSD.string)))
             link_articles = [ l.article for l in location_row.valueLinks if l.article ]
             for loc_article in set(location_row.falcon2_articles + link_articles):
-                article_uri = self.__add_article_triples(loc_article)
+                article_uri, _ = self.__add_article_triples(loc_article)
                 loc_place_uri = self.__add_place(graph, loc_article)
-                graph.add((loc_place_uri, CRM.P89_falls_within, place_uri))
+                graph.add((loc_place_uri, COY.isLocatedIn, place_uri))
         
         return place_uri
     
@@ -304,19 +307,19 @@ class OutputRdf:
         timespan_uri = None
         if start_date_slot or end_date_slot or ongoing_flag_slot or start_time_slot or end_time_slot:
             timespan_uri = self.__get_timespan_uri(start_date_slot, end_date_slot, ongoing_flag_slot, start_time_slot, end_time_slot, timezone_slot)
-            graph.add((timespan_uri, RDF.type, CRM["E52_Time-Span"]))
+            graph.add((timespan_uri, RDF.type, COY.Timespan))
             graph.add((timespan_uri, RDFS.label, Literal(timespan_label, datatype=XSD.string)))
 
             if start_date_slot:
-                graph.add((timespan_uri, CEV.hasStartDate, Literal(start_date_slot.isoformat(), datatype=XSD.dateTime)))
+                graph.add((timespan_uri, COY.hasStartDate, Literal(start_date_slot.isoformat(), datatype=XSD.dateTime)))
             if end_date_slot:
-                graph.add((timespan_uri, CEV.hasEndDate, Literal(end_date_slot.isoformat(), datatype=XSD.dateTime)))
+                graph.add((timespan_uri, COY.hasEndDate, Literal(end_date_slot.isoformat(), datatype=XSD.dateTime)))
             elif ongoing_flag_slot:
-                graph.add((timespan_uri, CEV.hasOngoingSpan, Literal("true", datatype=XSD.boolean)))
+                graph.add((timespan_uri, COY.hasOngoingSpan, Literal("true", datatype=XSD.boolean)))
             if start_time_slot:
-                graph.add((timespan_uri, CEV.hasStartTime, Literal(start_time_slot, datatype=XSD.time)))
+                graph.add((timespan_uri, COY.hasStartTime, Literal(start_time_slot, datatype=XSD.time)))
             if end_time_slot:
-                graph.add((timespan_uri, CEV.hasEndTime, Literal(end_time_slot, datatype=XSD.time)))
+                graph.add((timespan_uri, COY.hasEndTime, Literal(end_time_slot, datatype=XSD.time)))
         
         return timespan_uri
     
@@ -332,7 +335,7 @@ class OutputRdf:
         base.add((article_uri, RDF.type, GN.WikipediaArticle))
 
         if article.infobox:
-            raw.add((article_uri, CEV.hasInfobox, Literal(str(article.infobox), datatype=XSD.string)))
+            raw.add((article_uri, COY.hasRawHtml, Literal(str(article.infobox), datatype=XSD.string)))
         
         place_uri = None
         if article.location_flag or is_topic_article:
@@ -345,13 +348,19 @@ class OutputRdf:
                 self.__addCoordinates(base, place_uri, article.infobox_coordinates)
 
         # add wikidata entity stuff
-        wd_entity_uri = URIRef(article.wikidata_entity)
-        if len(article.wikidata_wkts) >= 1:
-            for osm_element in article.wikidata_wkts:
-                self.__addOsmElement(wd_entity_uri, osm_element)
-        
-        base.add((article_uri, OWL.sameAs, wd_entity_uri))
-        ohg += article.wikidata_one_hop_graph
+        if article.wikidata_entity:
+            wd_entity_uri = URIRef(article.wikidata_entity)
+            if len(article.wikidata_wkts) >= 1:
+                for osm_element in article.wikidata_wkts:
+                    self.__addOsmElement(wd_entity_uri, osm_element)
+            
+            # link new entities to the wikidata entity
+            base.add((article_uri, OWL.sameAs, wd_entity_uri))
+            if place_uri:
+                base.add((place_uri, OWL.sameAs, wd_entity_uri))
+
+            # add one-hop graph around wikidata entity to ohg graph
+            ohg += article.wikidata_one_hop_graph
         
         # add labels of classes which entity is instance of (classes are URIs of wd:entity in 1hop graph)
         for entityId, label in article.classes_with_labels.items():
@@ -375,6 +384,11 @@ class OutputRdf:
                 self.__addOsmElement(article_uri, row.valueLinks_wkts[l])
 
         return article_uri, place_uri
+
+
+    def __add_isodatetime_from_date(self, graph:Graph, target_uri:URIRef, date:datetime.date):
+        isodatetime = datetime.datetime(date.year, date.month, date.day)
+        graph.add((target_uri, COY.hasMentionDate, Literal(isodatetime, datatype=XSD.dateTime)))
 
     
     def storeEvent(self, event: Event):
@@ -400,22 +414,22 @@ class OutputRdf:
         context_uri = self.__get_context_uri(event)
 
         ## E5_Event triples
-        base.add((e5_event_uri, RDF.type, CRM.E5_Event))
-        base.add((e5_event_uri, CRM.P1_is_identified_by, context_uri))
-        base.add((e5_event_uri, CEV.hasMentionDate, Literal(event.date.isoformat(), datatype=XSD.date)))
+        base.add((e5_event_uri, RDF.type, COY.WikiNews))
+        base.add((e5_event_uri, COY.isIdentifiedBy, context_uri))
         base.add((e5_event_uri, COY.hasTag, Literal(str(event.category), datatype=XSD.string)))
+        self.__add_isodatetime_from_date(base, e5_event_uri, event.date)
 
-        raw.add((e5_event_uri, CEV.hasRaw, Literal(str(event.raw), datatype=XSD.string)))
+        raw.add((e5_event_uri, COY.hasRawHtml, Literal(str(event.raw), datatype=XSD.string)))
 
         # connect with topic
         for t in event.parentTopics:
             parent_e5 = self.__get_event_uri(t)
-            base.add((e5_event_uri, CRM.P117_occurs_during, parent_e5))
+            base.add((e5_event_uri, COY.isOccuringDuring, parent_e5))
 
         # wikidata type
         for entityId, label in event.eventTypes.items():
             class_uri = URIRef(WD[entityId])
-            base.add((e5_event_uri, CEV.hasWikidataEventType, class_uri))
+            base.add((e5_event_uri, COY.hasWikidataEventType, class_uri))
             base.add((class_uri, RDFS.label, Literal(str(label), datatype=XSD.string)))
 
 
@@ -484,7 +498,7 @@ class OutputRdf:
                             parent_loc_article = wd_entity2Article[parent_wd_entity]
                             parent_loc_place_uri = self.__get_place_uri(parent_loc_article)
                             place_uri = self.__get_place_uri(article)
-                            base.add((place_uri, CRM.P89_falls_within, parent_loc_place_uri))
+                            base.add((place_uri, COY.isLocatedIn, parent_loc_place_uri))
 
                             if parent_wd_entity in wd_loc_article_URIs4counting_leafs:
                                 wd_loc_article_URIs4counting_leafs.remove(parent_wd_entity)
@@ -505,19 +519,20 @@ class OutputRdf:
         ## E5_Event triples
         e5_event_uri = self.__get_event_uri(topic)
 
-        base.add((e5_event_uri, RDF.type, CRM.E5_Event))
-        base.add((e5_event_uri, CRM.P1_is_identified_by, Literal(str(topic.text), datatype=XSD.string)))
+        base.add((e5_event_uri, RDF.type, COY.WikiNews))
+        base.add((e5_event_uri, COY.isIdentifiedBy, Literal(str(topic.text), datatype=XSD.string)))
         
         # store date of usage of this topic
-        base.add((e5_event_uri, CEV.hasMentionDate, Literal(topic.date.isoformat(), datatype=XSD.date)))
+        self.__add_isodatetime_from_date(base, e5_event_uri, topic.date)
 
-        raw.add((e5_event_uri, CEV.hasRaw, Literal(str(topic.raw), datatype=XSD.string)))
+        # store raw html element of this topic
+        raw.add((e5_event_uri, COY.hasRawHtml, Literal(str(topic.raw), datatype=XSD.string)))
 
         # connect to parent topics
         if topic.parentTopics:
             for pt in topic.parentTopics:
                 parent_e5 = self.__get_event_uri(pt)
-                base.add((e5_event_uri, CRM.P117_occurs_during, parent_e5))
+                base.add((e5_event_uri, COY.isOccuringDuring, parent_e5))
         
         if topic.article:
             # add article
@@ -526,12 +541,12 @@ class OutputRdf:
 
             # connect place with event
             if place_uri:
-                base.add((e5_event_uri, CRM["P7_took_place_at"], place_uri))
+                base.add((e5_event_uri, COY.hasLocation, place_uri))
             
             # add timespan
             timespan_uri = self.__add_timespan(base, topic.article)
             if timespan_uri:
-                base.add((e5_event_uri, CRM["P4_has_time-span"], timespan_uri))
+                base.add((e5_event_uri, COY.hasTimespan, timespan_uri))
 
 
     def __load_graph(self, filename:str, dest_graph:Graph):
