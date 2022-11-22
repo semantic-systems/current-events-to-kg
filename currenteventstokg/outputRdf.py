@@ -415,6 +415,7 @@ class OutputRdf:
 
         ## E5_Event triples
         base.add((e5_event_uri, RDF.type, COY.WikiNews))
+        base.add((e5_event_uri, RDF.type, COY.Event))
         base.add((e5_event_uri, COY.isIdentifiedBy, context_uri))
         base.add((e5_event_uri, COY.hasTag, Literal(str(event.category), datatype=XSD.string)))
         self.__add_isodatetime_from_date(base, e5_event_uri, event.date)
@@ -520,6 +521,7 @@ class OutputRdf:
         e5_event_uri = self.__get_event_uri(topic)
 
         base.add((e5_event_uri, RDF.type, COY.WikiNews))
+        base.add((e5_event_uri, RDF.type, COY.Event))
         base.add((e5_event_uri, COY.isIdentifiedBy, Literal(str(topic.text), datatype=XSD.string)))
         
         # store date of usage of this topic
