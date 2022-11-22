@@ -434,23 +434,23 @@ class EventMap:
             start_t_day = time()
             q = Template("""
 PREFIX coy: <https://schema.coypu.org/global#>
-PREFIX coy_ev: <https://schema.coypu.org/events#>
-PREFIX crm: <http://www.cidoc-crm.org/cidoc-crm/>
 PREFIX gn: <https://www.geonames.org/ontology#>
+PREFIX geo: <http://www.opengis.net/ont/geosparql#>
 PREFIX nif: <http://persistence.uni-leipzig.org/nlp2rdf/ontologies/nif-core#>
+
 SELECT DISTINCT ?e ?wd_wkt FROM <${month}_${year}> WHERE{
-    ?e  a crm:E5_Event;
-        crm:P117_occurs_during+/gn:wikipediaArticle <https://en.wikipedia.org/wiki/2022_Russian_invasion_of_Ukraine>;
-        coy_ev:hasMentionDate ?date;
-        crm:P1_is_identified_by ?c.
+    ?e  a coy:WikiNews;
+        coy:isOccuringDuring+/gn:wikipediaArticle <https://en.wikipedia.org/wiki/2022_Russian_invasion_of_Ukraine>;
+        coy:hasMentionDate ?date;
+        coy:isIdentifiedBy ?c.
     ?c  nif:subString/nif:subString/gn:wikipediaArticle ?a.
 
-    {?a  owl:sameAs/coy_ev:hasOsmElement ?osm.}
+    {?a  owl:sameAs/coy:hasOsmElement ?osm.}
     UNION
-    {?a  coy_ev:hasOsmElement ?osm.}
+    {?a  coy:hasOsmElement ?osm.}
 
-    ?osm coy_ev:hasOsmWkt ?wd_wkt.
-    ?p  a crm:E53_Place;
+    ?osm geo:asWKT ?wd_wkt.
+    ?p  a coy:Location;
         gn:wikipediaArticle ?a.
     FILTER(DAY(?date) = $day)
 }""").substitute(day=day, month=months[month-1], year=year)

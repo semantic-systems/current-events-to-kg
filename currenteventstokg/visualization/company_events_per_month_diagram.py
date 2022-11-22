@@ -50,11 +50,13 @@ class NumCompanyEventsPerMonthDiagram(CurrentEventDiagram, Sleeper):
             res_list = self._load_json(qres_cache_path)
         else:
             q = """
+                PREFIX coy: <https://schema.coypu.org/global#>
                 PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+    
                 SELECT DISTINCT ?year ?month ?wd ?type ?e ?text ?link_text WHERE{
-                    ?e  a crm:E5_Event;
-                        coy_ev:hasMentionDate ?date;
-                        crm:P1_is_identified_by ?c.
+                    ?e  a coy:WikiNews;
+                        coy:hasMentionDate ?date;
+                        coy:isIdentifiedBy ?c.
  
                     ?c  a nif:Context;
                         nif:isString ?text;
@@ -145,8 +147,8 @@ class NumCompanyEventsPerMonthDiagram(CurrentEventDiagram, Sleeper):
         PREFIX nif: <http://persistence.uni-leipzig.org/nlp2rdf/ontologies/nif-core#>
         PREFIX wdt: <http://www.wikidata.org/prop/direct/>
         SELECT DISTINCT ?wd ?type WHERE{
-            ?e  a crm:E5_Event;
-                crm:P1_is_identified_by ?c.
+            ?e  a coy:WikiNews;
+                coy:isIdentifiedBy ?c.
             ?c  a nif:Context;
                 nif:subString/nif:subString/gn:wikipediaArticle ?a.
             ?a  a gn:WikipediaArticle;
@@ -215,18 +217,6 @@ if __name__ == "__main__":
         help="used processes")
     
     args = parser.parse_args()
-
-#     g = SPARQLEndpoint(args.wikidata_endpoint)
-#     q = """PREFIX wdt: <http://www.wikidata.org/prop/direct/>
-# PREFIX wd: <http://www.wikidata.org/entity/>
-# PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-# SELECT ?c WHERE {
-# wd:Q185458 wdt:P31 ?cx.  
-# ?cx wdt:P279*/wdt:P460? ?c.
-# }"""
-#     qres = g.query(q)
-#     print(qres)
-#     quit()
 
     locale.setlocale(locale.LC_ALL,'en_US.UTF-8')
     plt.rcParams['axes.formatter.use_locale'] = True

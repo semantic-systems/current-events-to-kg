@@ -353,22 +353,21 @@ class TopicGraphDiagram:
  
     def _queryTopicsArticleDate(self, force:bool=False):
         q_template = Template("""
-            PREFIX coy_ev: <https://schema.coypu.org/events#>
+            PREFIX coy: <https://schema.coypu.org/global#>
             PREFIX schema: <https://schema.org/>
             PREFIX gn: <https://www.geonames.org/ontology#>
-            PREFIX crm: <http://www.cidoc-crm.org/cidoc-crm/>
             PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
             
             SELECT DISTINCT ?pt ?t ?pl ?l ?a_date (MIN(?date) as ?date) $from_string WHERE{
-                ?pt a crm:E5_Event;
-                    (crm:P117_occurs_during*)/gn:wikipediaArticle <https://en.wikipedia.org/wiki/2022_Russian_invasion_of_Ukraine> ;
-                    coy_ev:hasMentionDate ?date.
-                ?t crm:P117_occurs_during ?pt;
-                   coy_ev:hasMentionDate ?date.
+                ?pt a coy:WikiNews;
+                    (coy:isOccuringDuring*)/gn:wikipediaArticle <https://en.wikipedia.org/wiki/2022_Russian_invasion_of_Ukraine> ;
+                    coy:hasMentionDate ?date.
+                ?t coy:isOccuringDuring ?pt;
+                   coy:hasMentionDate ?date.
 
                 { ?t gn:wikipediaArticle [ schema:name ?l ]. } 
                 UNION {
-                    ?t crm:P1_is_identified_by ?l.
+                    ?t coy:isIdentifiedBy ?l.
                     FILTER(DATATYPE(?l) = xsd:string).
                     FILTER NOT EXISTS{?t gn:wikipediaArticle ?a.}
                 }
@@ -376,14 +375,14 @@ class TopicGraphDiagram:
                 { ?pt gn:wikipediaArticle [ schema:name ?pl ]. } 
                 UNION 
                 {
-                    ?pt crm:P1_is_identified_by ?pl.
+                    ?pt coy:isIdentifiedBy ?pl.
                     FILTER(DATATYPE(?pl) = xsd:string).
                     FILTER NOT EXISTS{?pt gn:wikipediaArticle ?pa.}
                 }
                     
                 OPTIONAL{
-                    ?t crm:P4_has_time-span ?ts.
-                    ?ts coy_ev:hasStartDate ?a_date.
+                    ?t coy:hasTimespan ?ts.
+                    ?ts coy:hasStartDate ?a_date.
                 }
                 
             } GROUP BY ?pt ?t ?pl ?l ?a_date""")
@@ -402,7 +401,7 @@ class TopicGraphDiagram:
             for row in qres["results"]["bindings"]:
                 t = str(row["t"]["value"])
                 pt = str(row["pt"]["value"])
-                date = datetime.date.fromisoformat(str(row["date"]["value"]))
+                date = datetime.datetime.fromisoformat(str(row["date"]["value"]))
 
                 key = (pt,t)
                 if key not in min_date_row or min_date_row[key][0] > date :
@@ -554,7 +553,7 @@ class TopicGraphDiagram:
             a_date = None
             if "a_date" in row:
                 a_date = datetime.datetime.fromisoformat(str(row["a_date"]["value"]))
-            date = datetime.date.fromisoformat(str(row["date"]["value"]))
+            date = datetime.datetime.fromisoformat(str(row["date"]["value"]))
 
             print(date, pl, "->", l)
 
@@ -562,7 +561,7 @@ class TopicGraphDiagram:
             if use_a_date and a_date:
                 d = a_date
             else:
-                d = datetime.datetime(date.year, date.month, date.day)
+                d = date
             
             if d and d < after:
                 if d:

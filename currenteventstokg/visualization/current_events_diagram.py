@@ -45,7 +45,7 @@ class Diagram():
             x,y = [],[]
             for year in keys:
                 for month in range(12):
-                    if month in data_dict[year] and not np.isnan(data_dict[year][month]):
+                    if not np.isnan(data_dict[year][month]):
                         y.append(data_dict[year][month])
                         x.append(datetime.datetime(int(year), month+1, 1))
             xy_list.append((x,y))

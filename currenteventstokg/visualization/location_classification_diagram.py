@@ -162,14 +162,15 @@ class LocationClassificationDiagram(CurrentEventDiagram):
     def __count_articles(self, d):
         g = CurrentEventsGraph(["January_2022"])
         q = """
+            PREFIX coy: <https://schema.coypu.org/global#>
             PREFIX gn: <https://www.geonames.org/ontology#>
             PREFIX schema: <https://schema.org/>
-            PREFIX crm: <http://www.cidoc-crm.org/cidoc-crm/>
+
             SELECT DISTINCT ?name ?loc WHERE{
             ?a  a gn:WikipediaArticle;
                 schema:name ?name.
             BIND(EXISTS{
-                ?p  a crm:E53_Place;
+                ?p  a coy:Location;
                     gn:wikipediaArticle ?a.
             } AS ?loc).
         }"""

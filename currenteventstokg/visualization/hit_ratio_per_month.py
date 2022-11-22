@@ -50,10 +50,10 @@ class HitRatioPerMonth(Diagram):
             year = int(gn.split("_")[1])
 
             if year not in data:
-                data[year] = {}
+                data[year] = np.full(12, np.nan)
             
             if year not in cumu_data:
-                cumu_data[year] = {}
+                cumu_data[year] = np.full(12, np.nan)
 
             total_hits += hits
             total_misses += misses

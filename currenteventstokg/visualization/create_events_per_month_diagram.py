@@ -25,15 +25,14 @@ class NumEventsPerMonthAverageDiagram(CurrentEventDiagram):
 
     def createDiagram(self, force=True):
         q = """
-            PREFIX coy_ev: <https://schema.coypu.org/events#>
+            PREFIX coy: <https://schema.coypu.org/global#>
             PREFIX gn: <https://www.geonames.org/ontology#>
             PREFIX nif: <http://persistence.uni-leipzig.org/nlp2rdf/ontologies/nif-core#>
-            PREFIX crm: <http://www.cidoc-crm.org/cidoc-crm/>
             SELECT DISTINCT ?month (COUNT(?e) as ?num) WHERE{
-                ?e  (crm:P117_occurs_during)*/gn:wikipediaArticle <https://en.wikipedia.org/wiki/2022_Russian_invasion_of_Ukraine>;
-                    a crm:E5_Event;
-                    crm:P1_is_identified_by ?c;
-                    coy_ev:hasMentionDate ?date.
+                ?e  (coy:isOccuringDuring)*/gn:wikipediaArticle <https://en.wikipedia.org/wiki/2022_Russian_invasion_of_Ukraine>;
+                    a coy:WikiNews;
+                    coy:isIdentifiedBy ?c;
+                    coy:hasMentionDate ?date.
                 ?c a nif:Context.
                 BIND(MONTH(?date) as ?month).
             } GROUP BY ?month"""
@@ -85,15 +84,15 @@ class NumEventsPerMonthDiagram(CurrentEventDiagram):
             data = self.__load_json(cache_path)
         else:
             q = """
-                PREFIX coy_ev: <https://schema.coypu.org/events#>
+                PREFIX coy: <https://schema.coypu.org/global#>
                 PREFIX gn: <https://www.geonames.org/ontology#>
-                PREFIX crm: <http://www.cidoc-crm.org/cidoc-crm/>
                 PREFIX nif: <http://persistence.uni-leipzig.org/nlp2rdf/ontologies/nif-core#>
+
                 SELECT DISTINCT ?year ?month (COUNT(?e) as ?num) WHERE{
-                    ?e  (crm:P117_occurs_during)*/gn:wikipediaArticle <https://en.wikipedia.org/wiki/2022_Russian_invasion_of_Ukraine>;
-                        a crm:E5_Event;
-                        crm:P1_is_identified_by ?c;
-                        coy_ev:hasMentionDate ?date.
+                    ?e  (coy:isOccuringDuring)*/gn:wikipediaArticle <https://en.wikipedia.org/wiki/2022_Russian_invasion_of_Ukraine>;
+                        a coy:WikiNews;
+                        coy:isIdentifiedBy ?c;
+                        coy:hasMentionDate ?date.
                     ?c a nif:Context.
                     BIND(MONTH(?date) as ?month).
                     BIND(YEAR(?date) as ?year).
