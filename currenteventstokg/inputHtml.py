@@ -15,9 +15,10 @@ from .sleeper import Sleeper
 
 class InputHtml(Sleeper):
 
-    def __init__(self, analytics:Optional[Analytics], cache_dir:Path, ignore_http_cache:bool, reqCooldown:float=0.1):
+    def __init__(self, analytics:Optional[Analytics], cache_dir:Path, ignore_wiki_cache:bool, ignore_current_events_page_cache:bool, reqCooldown:float=0.1):
         super().__init__()
-        self.ignore_http_cache = ignore_http_cache
+        self.ignore_wiki_cache = ignore_wiki_cache
+        self.ignore_current_events_page_cache = ignore_current_events_page_cache
         self.cooldown = reqCooldown # in s
         self.analytics = analytics
 
@@ -31,8 +32,8 @@ class InputHtml(Sleeper):
         os.makedirs(self.cache_infobox_templates_dir, exist_ok=True)
     
 
-    def __fetchPage(self, filePath, url):
-        if(os.path.exists(filePath) and not self.ignore_http_cache):  
+    def __fetchPage(self, filePath, url, force=False):
+        if(os.path.exists(filePath) and not force):  
             if self.analytics:
                 self.analytics.numOpenings += 1
             with open(filePath, mode='r', encoding="utf-8") as f:
@@ -73,7 +74,7 @@ class InputHtml(Sleeper):
         urlBase = "https://en.wikipedia.org/wiki/Portal:Current_events/" # eg April_2022
         filePath = self.cacheCurrentEventsDir / (suffix + ".html")
         sourceUrl = urlBase + suffix
-        return sourceUrl, self.__fetchPage(filePath, sourceUrl)
+        return sourceUrl, self.__fetchPage(filePath, sourceUrl, self.ignore_current_events_page_cache)
     
 
     def fetchWikiPage(self, url):
@@ -81,10 +82,10 @@ class InputHtml(Sleeper):
         urlSuffix = re.split("/", url)[4]
         filePath = self.cacheWikiDir / (urlSuffix + ".html")
         
-        return self.__fetchPage(filePath, urlBase + urlSuffix)
+        return self.__fetchPage(filePath, urlBase + urlSuffix, self.ignore_wiki_cache)
 
     def fetchLocationTemplatesPage(self):
         url = "https://en.wikipedia.org/wiki/Wikipedia:List_of_infoboxes/Place"
         filePath = self.cache_infobox_templates_dir / ("places.html")
         
-        return self.__fetchPage(filePath, url)
+        return self.__fetchPage(filePath, url, self.ignore_wiki_cache)

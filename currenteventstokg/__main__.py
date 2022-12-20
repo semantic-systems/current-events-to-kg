@@ -43,9 +43,13 @@ if __name__ == '__main__':
         action='store_true', 
         help="Parse again even if graph for this month exists in cache")
     
-    parser.add_argument('-ihc', '--ignore_http_cache', 
+    parser.add_argument('-ihc', '--ignore_wiki_cache', 
         action='store_true', 
-        help="GET every website")
+        help="Ignore cache of Wikipedia wiki pages")
+    
+    parser.add_argument('-icepc', '--ignore_current_events_page_cache', 
+        action='store_true', 
+        help="Query current events page again even if exists in cache")
     
     parser.add_argument('-iwoec', '--ignore_wikidata_osm_entity_cache', 
         action='store_true', 
@@ -90,6 +94,10 @@ if __name__ == '__main__':
     parser.add_argument('-coe', '--crash_on_exceptions', 
         action='store_true', 
         help="Program crashes on Exceptions, instead of skipping month.")
+
+    parser.add_argument('-um', '--update_mode', 
+        action='store_true', 
+        help="If used will update the specified files while only ignoring wikipedia and wikidata caches.")
     
     # store
     parser.add_argument('-msd', '--monthly_start_day', 
@@ -156,11 +164,26 @@ if __name__ == '__main__':
     
     args = parser.parse_args()
 
+    # override args in certain modes
     if args.sample_mode:
         args.start = "1/2022"
         args.end = "1/2022"
         args.monthly_start_day = 1
         args.monthly_end_day = 1
+    
+    if args.update_mode:
+        # updating => parse all everything again
+        args.force_parse = True
+        # Dont update falcon and osm related caches assuming they dont update based on daily events.
+        # update wikipedia caches
+        args.ignore_current_events_page_cache = True
+        args.ignore_wiki_cache = True
+        # update wikidata caches
+        args.ignore_wikidata_osm_entity_cache = True
+        args.ignore_wikidata_label_cache = True
+        args.ignore_wikidata_one_hop_graph_cache = True
+        args.ignore_wikidata_higher_level_location_cache = True
+
 
     standard_start_end_days = args.monthly_start_day == 1 and args.monthly_end_day == 31
     
@@ -175,7 +198,7 @@ if __name__ == '__main__':
     parser = "lxml" # "lxml" faster than "html.parser"
     
     a = Analytics(basedir, args, args.analytics_dir)
-    i = InputHtml(a, basedir / args.cache_dir, args.ignore_http_cache)
+    i = InputHtml(a, basedir / args.cache_dir, args.ignore_wiki_cache, args.ignore_current_events_page_cache)
     p = PlacesTemplatesExtractor(basedir, args, i, parser)
     o = OutputRdf(basedir, args, a, args.dataset_dir)
     n = NominatimService(basedir, args, a, __progName__, __progVersion__, __progGitRepo__, 
