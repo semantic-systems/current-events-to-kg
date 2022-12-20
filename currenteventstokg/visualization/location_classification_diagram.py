@@ -65,13 +65,14 @@ class LocationClassificationDiagram(CurrentEventDiagram):
 
                 old = {"tp":[],"fp":[],"tn":[],"fn":[]}
                 new = {"tp":[],"fp":[],"tn":[],"fn":[]}
+                coord = {"tp":[],"fp":[],"tn":[],"fn":[]}
                 old_coord = {"tp":[],"fp":[],"tn":[],"fn":[]}
                 new_coord = {"tp":[],"fp":[],"tn":[],"fn":[]}
                 new_old = {"tp":[],"fp":[],"tn":[],"fn":[]}
                 new_old_coord = {"tp":[],"fp":[],"tn":[],"fn":[]}
 
                 tests = {
-                    "old":old, "new":new, 
+                    "old":old, "new":new, "coord":coord, 
                     "old_coord":old_coord, "new_coord":new_coord, 
                     "new_old":new_old, "new_old_coord":new_old_coord
                 }
@@ -104,7 +105,7 @@ class LocationClassificationDiagram(CurrentEventDiagram):
                 fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2,2, squeeze=False, layout="constrained")
                 
                 labels = {
-                    "old":"a", "new":"b", 
+                    "old":"a", "new":"b", "coord":"c", 
                     "old_coord":"a+c", "new_coord":"b+c", 
                     "new_old":"a+b", "new_old_coord":"a+b+c"
                 }
@@ -143,6 +144,7 @@ class LocationClassificationDiagram(CurrentEventDiagram):
         for stmt, var in [
                 (j["old"], tests["old"]),
                 (j["new"], tests["new"]),
+                (j["coord"], tests["coord"]),
                 ((j["new"] or j["coord"]), tests["new_coord"]),
                 ((j["old"] or j["coord"]), tests["old_coord"]),
                 ((j["old"] or j["new"]), tests["new_old"]),

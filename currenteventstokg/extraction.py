@@ -622,14 +622,12 @@ class Extraction:
         if locFlag:
             self.analytics.numArticlesWithLocFlag += 1
         
-        ## location classifier testing code
-        # locFlagOld = self.__testIfPageIsLocationCss(p, ib, coord)
+        # # location classifier testing code
+        # locFlagOld = self.__testIfPageIsLocationCss(p, ib)
         # locFlagNew = self.__testIfPageIsLocationTemplate(templates)
-        # if  locFlag != locFlagOld or \
-        #     locFlag != (locFlag or bool(coord)) or \
-        #     locFlag != (locFlagOld or bool(coord)) :
+        # if  locFlagNew != locFlagOld or locFlagNew != bool(coord) :
         #     with open(self.basedir / "loclog.json", "a") as f:
-        #         json.dump({"name":name, "old":locFlagOld, "new":locFlag, "coord":bool(coord)}, f)
+        #         json.dump({"name":name, "old":locFlagOld, "new":locFlagNew, "coord":bool(coord)}, f)
         #         print("", file=f)
         
         # check for parent locations
