@@ -112,28 +112,30 @@ class LocationClassificationDiagram(CurrentEventDiagram):
                 
                 x = [labels[x] for x in tests.keys()]
                 ax1.bar(x, f1s)
-                ax1.set_title("F1")
-                ax1.set_ylabel("F1")
+                #ax1.set_title("F1")
+                ax1.set_ylabel(f"\\textbf{{F1}}")
                 ax1.set_ylim(0.8, 1)
 
                 ax2.bar(x, accs)
-                ax2.set_title("Accuracy")
-                ax2.set_ylabel("Accuracy")
+                #ax2.set_title("Accuracy")
+                ax2.set_ylabel(f"\\textbf{{Accuracy}}")
                 ax2.set_ylim(0.9, 1)
 
                 ax3.bar(x, pres)
-                ax3.set_title("Precision")
-                ax3.set_ylabel("Precision")
+                #ax3.set_title("Precision")
+                ax3.set_ylabel(f"\\textbf{{Precision}}")
                 ax3.set_ylim(0.8, 1)
 
                 ax4.bar(x, recs)
-                ax4.set_title("Recall")
-                ax4.set_ylabel("Recall")
+                #ax4.set_title("Recall")
+                ax4.set_ylabel(f"\\textbf{{Recall}}")
                 ax4.set_ylim(0.8, 1)
 
                 for ax in [ax1, ax2, ax3, ax4]:
-                    ax.set_xlabel("Classification Method")
-            
+                    ax.set_xlabel(f"\\textbf{{Classification Method}}")
+                
+                fig.set_figheight(4.5)
+                fig.set_figwidth(6.52)
                 fig.savefig(
                     self.diagrams_dir / f"{self.filename}_{i}.svg",
                     #dpi=400,

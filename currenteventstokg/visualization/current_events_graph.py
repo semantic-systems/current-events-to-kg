@@ -29,7 +29,7 @@ def add_prefixes(g:Graph):
 
     g.namespace_manager.bind('events', events_ns)
     g.namespace_manager.bind('contexts', contexts_ns)
-    g.namespace_manager.bind('places', locations_ns)
+    g.namespace_manager.bind('locations', locations_ns)
     g.namespace_manager.bind('osm_elements', osm_element_ns)
     g.namespace_manager.bind('timespans', timespan_ns)
 

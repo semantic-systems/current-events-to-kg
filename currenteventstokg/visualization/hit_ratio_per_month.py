@@ -78,7 +78,9 @@ class HitRatioPerMonth(Diagram):
         fig, ax = plt.subplots()
 
         self._plot(ax)
-
+        
+        fig.set_figheight(3)
+        fig.set_figwidth(4)
         fig.savefig(
             self.diagrams_dir / f"{self.filename}.svg",
             #dpi=400,

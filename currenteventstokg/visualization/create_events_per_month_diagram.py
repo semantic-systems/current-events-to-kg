@@ -127,6 +127,8 @@ class NumEventsPerMonthDiagram(CurrentEventDiagram):
             "Month",
             "Number of events",
         )
+        fig.set_figheight(3)
+        fig.set_figwidth(4)
         fig.savefig(
             self.diagrams_dir / f"{self.filename}.svg",
             #dpi=400,
