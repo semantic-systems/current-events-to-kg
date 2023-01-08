@@ -181,7 +181,7 @@ class OutputRdf:
             for loc_article in set(location_row.falcon2_articles + link_articles):
                 article_uri, _ = self.__add_article_triples(loc_article)
                 loc_place_uri = self.__add_place(graph, loc_article)
-                graph.add((loc_place_uri, COY.isLocatedIn, place_uri))
+                graph.add((place_uri, COY.isLocatedIn, loc_place_uri))
         
         return place_uri
     
@@ -522,7 +522,7 @@ class OutputRdf:
 
         base.add((e5_event_uri, RDF.type, COY.WikiNews))
         base.add((e5_event_uri, RDF.type, COY.Event))
-        base.add((e5_event_uri, COY.isIdentifiedBy, Literal(str(topic.text), datatype=XSD.string)))
+        base.add((e5_event_uri, RDFS.label, Literal(str(topic.text), datatype=XSD.string)))
         
         # store date of usage of this topic
         self.__add_isodatetime_from_date(base, e5_event_uri, topic.date)
