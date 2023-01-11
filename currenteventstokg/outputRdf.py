@@ -1,28 +1,34 @@
 # Copyright: (c) 2022, Lars Michaelis
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
-import hashlib
 import re
 from os import makedirs
 from os.path import exists
-from typing import overload, Tuple, Optional
-from urllib.parse import quote_plus
+from typing import overload, Tuple, Optional, List
+from urllib.parse import quote_plus, unquote
+import datetime
 
 from rdflib import (FOAF, OWL, RDF, RDFS, XSD, BNode, Graph, Literal,
                     Namespace, URIRef)
 
 from .objects.article import Article
 from .objects.event import Event
-from .objects.infoboxRow import *
+from .objects.infoboxRow import InfoboxRowDate, InfoboxRowTime, InfoboxRowLocation
 from .objects.topic import Topic
+from .objects.osmElement import OSMElement
 
 # data under https://data.coypu.org/ENTITY-TYPE/DATA-SOURCE/ID
-events_ns = Namespace("https://data.coypu.org/event/wikipedia-current-events/")
+events_ns = Namespace("https://data.coypu.org/newssummary/wikipedia-current-events/newssummary/")
+article_topics_ns = Namespace("https://data.coypu.org/articletopic/wikipedia-current-events/")
+text_topics_ns = Namespace("https://data.coypu.org/texttopic/wikipedia-current-events/")
 contexts_ns = Namespace("https://data.coypu.org/context/wikipedia-current-events/")
+sentences_ns = Namespace("https://data.coypu.org/sentence/wikipedia-current-events/")
+phrases_ns = Namespace("https://data.coypu.org/phrase/wikipedia-current-events/")
 locations_ns = Namespace("https://data.coypu.org/location/wikipedia-current-events/")
 osm_element_ns = Namespace("https://data.coypu.org/osmelement/wikipedia-current-events/")
 point_ns = Namespace("https://data.coypu.org/point/wikipedia-current-events/")
 timespan_ns = Namespace("https://data.coypu.org/timespan/wikipedia-current-events/")
+wikipedia_article_ns = Namespace("https://data.coypu.org/wikipediaarticle/wikipedia-current-events/")
 
 COY = Namespace("https://schema.coypu.org/global#")
 NIF = Namespace("http://persistence.uni-leipzig.org/nlp2rdf/ontologies/nif-core#")
@@ -52,16 +58,6 @@ class OutputRdf:
             "osm": Graph(),
         }
 
-
-    def __getTopicURI(self, t) -> URIRef:
-        link = t.link
-        
-        if link != None and re.match("https://en.wikipedia.org/wiki/", link):
-            uri = URIRef(link)
-        else:
-            uri =  topics_ns[str(hashlib.md5(t.text.encode('utf-8')).hexdigest())]
-        return uri
-
     def __get_osm_uri(self, osmElement:OSMElement) -> URIRef:
         suffix = str(osmElement.osmType) + "_" + str(osmElement.osmId)
         uri = osm_element_ns[suffix]
@@ -74,7 +70,7 @@ class OutputRdf:
     
     def __get_event_id(self, event:Event) -> str:
         date = event.date
-        return f"{date.year}_{date.month}_{date.day}_e_{event.eventIndex}"
+        return f"{date.year:04}-{date.month:02}-{date.day:02}_{event.eventIndex}"
     
     @overload
     def __get_event_uri(self, topic:Topic) -> URIRef:
@@ -86,12 +82,18 @@ class OutputRdf:
         if isinstance(obj, Event):
             date = obj.date
             suffix = self.__get_event_id(obj)
+            uri = events_ns[suffix]
         elif isinstance(obj, Topic):
             if obj.article:
-                suffix = "a_" + obj.article.url.rsplit('/', 1)[-1]
+                # Topics with link to wiki article
+                suffix = obj.article.url.rsplit('/', 1)[-1]
+                # no unquote_plus since spaces are _
+                suffix = unquote(suffix) 
+                uri = article_topics_ns[suffix]
             else:
-                suffix = "l_" + quote_plus(obj.text)
-        uri = events_ns[suffix]
+                # Topics without link
+                suffix = quote_plus(obj.text)
+                uri = text_topics_ns[suffix]
         return uri
     
     def __get_place_uri(self, article:Article) -> URIRef:
@@ -105,15 +107,15 @@ class OutputRdf:
         return uri
     
     def __get_sentence_uri(self, context_uri:URIRef, index:int) -> URIRef:
-        uri = context_uri + f"#s{index}"
+        uri = sentences_ns[context_uri.rsplit('/', 1)[-1] + f"_{index}"]
         return uri
 
     def __get_phrase_uri(self, sentence_uri:URIRef, index:int) -> URIRef:
-        uri = sentence_uri + f"_l{index}"
+        uri = phrases_ns[sentence_uri.rsplit('/', 1)[-1] + f"_{index}"]
         return uri
     
     def __get_article_uri(self, article:Article) -> URIRef:
-        uri = URIRef(article.url)
+        uri = wikipedia_article_ns[article.url.rsplit('/', 1)[-1]]
         return uri
 
     def __get_timespan_uri(self, 
@@ -146,6 +148,9 @@ class OutputRdf:
         puri = self.__get_point_uri(coordinates)
         graph.add((parentUri, COY.hasLocation, puri))
         graph.add((puri, RDF.type, WGS.Point))
+
+        graph.add((puri, RDFS.label, Literal(f"{coordinates[0]},{coordinates[1]}", datatype=XSD.string)))
+        
         graph.add((puri, WGS.lat, Literal(str(coordinates[0]), datatype=XSD.float)))
         graph.add((puri, WGS.long, Literal(str(coordinates[1]), datatype=XSD.float)))
 
@@ -160,6 +165,8 @@ class OutputRdf:
         if osmElement.osmType or osmElement.osmId or osmElement.wkt:
             graph.add((target, COY.hasOsmElement, osmuri))
             graph.add((osmuri, RDF.type, COY.OsmElement))
+            graph.add((osmuri, RDFS.label, Literal(f"{osmElement.osmType} {osmElement.osmId}", datatype=XSD.string)))
+
             if osmElement.osmType:
                 graph.add((osmuri, COY.hasOsmType, Literal(str(osmElement.osmType), datatype=XSD.string)))
             if osmElement.osmId:
@@ -171,6 +178,7 @@ class OutputRdf:
     def __add_place(self, graph:Graph, article:Article) -> URIRef:
         place_uri = self.__get_place_uri(article)
         graph.add((place_uri, RDF.type, COY.Location))
+        graph.add((place_uri, RDFS.label, Literal(f"{article.name}", datatype=XSD.string)))
 
         # only use one row as the location (should only be one)
         location_rows = [ibr for ibr in article.infobox_rows.values() if isinstance(ibr, InfoboxRowLocation)]
@@ -333,6 +341,12 @@ class OutputRdf:
         article_uri = self.__get_article_uri(article)
     
         base.add((article_uri, RDF.type, GN.WikipediaArticle))
+        base.add((article_uri, RDFS.label, Literal(str(article.name), datatype=XSD.string)))
+
+        # source document (Wiki article url)
+        source_uri = URIRef(str(article.url))
+        base.add((source_uri, RDF.type, FOAF.Document))
+        base.add((article_uri, NIF.sourceUrl, source_uri)) 
 
         if article.infobox:
             raw.add((article_uri, COY.hasRawHtml, Literal(str(article.infobox), datatype=XSD.string)))
@@ -410,32 +424,34 @@ class OutputRdf:
             return
         
         # URIs
-        e5_event_uri = self.__get_event_uri(event)
+        event_uri = self.__get_event_uri(event)
         context_uri = self.__get_context_uri(event)
 
         ## E5_Event triples
-        base.add((e5_event_uri, RDF.type, COY.WikiNews))
-        base.add((e5_event_uri, RDF.type, COY.Event))
-        base.add((e5_event_uri, COY.isIdentifiedBy, context_uri))
-        base.add((e5_event_uri, COY.hasTag, Literal(str(event.category), datatype=XSD.string)))
-        self.__add_isodatetime_from_date(base, e5_event_uri, event.date)
+        base.add((event_uri, RDF.type, COY.NewsSummary))
+        base.add((event_uri, RDF.type, COY.WikiNews))
+        base.add((event_uri, RDF.type, COY.Event))
+        base.add((event_uri, COY.isIdentifiedBy, context_uri))
+        base.add((event_uri, COY.hasTag, Literal(str(event.category), datatype=XSD.string)))
+        self.__add_isodatetime_from_date(base, event_uri, event.date)
 
-        raw.add((e5_event_uri, COY.hasRawHtml, Literal(str(event.raw), datatype=XSD.string)))
+        raw.add((event_uri, COY.hasRawHtml, Literal(str(event.raw), datatype=XSD.string)))
 
         # connect with topic
         for t in event.parentTopics:
-            parent_e5 = self.__get_event_uri(t)
-            base.add((e5_event_uri, COY.isOccuringDuring, parent_e5))
+            parent_event = self.__get_event_uri(t)
+            base.add((event_uri, COY.isOccuringDuring, parent_event))
 
         # wikidata type
         for entityId, label in event.eventTypes.items():
             class_uri = URIRef(WD[entityId])
-            base.add((e5_event_uri, COY.hasWikidataEventType, class_uri))
+            base.add((event_uri, COY.hasWikidataEventType, class_uri))
             base.add((class_uri, RDFS.label, Literal(str(label), datatype=XSD.string)))
 
 
         ## Context node triples
         base.add((context_uri, RDF.type, NIF.Context))
+        base.add((context_uri, RDFS.label, Literal(str(event.text), datatype=XSD.string)))
 
         # string
         base.add((context_uri, NIF.isString, Literal(str(event.text), datatype=XSD.string)))
@@ -461,6 +477,8 @@ class OutputRdf:
             sentence_uri = self.__get_sentence_uri(context_uri, i)
 
             base.add((sentence_uri, RDF.type, NIF.Sentence))
+            base.add((sentence_uri, RDFS.label, Literal(str(sentence.text), datatype=XSD.string)))
+
             base.add((sentence_uri, NIF.referenceContext, context_uri))
             base.add((context_uri, NIF.subString, sentence_uri))
             base.add((sentence_uri, NIF.anchorOf, Literal(str(sentence.text), datatype=XSD.string)))
@@ -477,6 +495,8 @@ class OutputRdf:
                 # link
                 link_uri = self.__get_phrase_uri(sentence_uri, j)
                 base.add((link_uri, RDF.type, NIF.Phase))
+                base.add((link_uri, RDFS.label, Literal(str(link.text), datatype=XSD.string)))
+
                 base.add((link_uri, NIF.referenceContext, sentence_uri))
                 base.add((sentence_uri, NIF.subString, link_uri))
                 base.add((link_uri, NIF.anchorOf, Literal(str(link.text), datatype=XSD.string)))
@@ -520,8 +540,10 @@ class OutputRdf:
         ## E5_Event triples
         e5_event_uri = self.__get_event_uri(topic)
 
+        base.add((e5_event_uri, RDF.type, COY.TextTopic))
         base.add((e5_event_uri, RDF.type, COY.WikiNews))
         base.add((e5_event_uri, RDF.type, COY.Event))
+
         base.add((e5_event_uri, RDFS.label, Literal(str(topic.text), datatype=XSD.string)))
         
         # store date of usage of this topic
@@ -537,6 +559,8 @@ class OutputRdf:
                 base.add((e5_event_uri, COY.isOccuringDuring, parent_e5))
         
         if topic.article:
+            base.add((e5_event_uri, RDF.type, COY.ArticleTopic))
+
             # add article
             article_uri, place_uri = self.__add_article_triples(topic.article, is_topic_article=True)
             base.add((e5_event_uri, GN.wikipediaArticle, article_uri))
