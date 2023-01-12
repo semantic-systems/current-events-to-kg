@@ -5,7 +5,7 @@ import re
 from os import makedirs
 from os.path import exists
 from typing import overload, Tuple, Optional, List
-from urllib.parse import quote_plus, unquote
+from urllib.parse import quote_plus
 import datetime
 
 from rdflib import (FOAF, OWL, RDF, RDFS, XSD, BNode, Graph, Literal,
@@ -71,6 +71,9 @@ class OutputRdf:
     def __get_event_id(self, event:Event) -> str:
         date = event.date
         return f"{date.year:04}-{date.month:02}-{date.day:02}_{event.eventIndex}"
+
+    def __get_wiki_article_url_identifier(self, article:Article) -> str:
+        return article.url.rsplit('/', 1)[-1]
     
     @overload
     def __get_event_uri(self, topic:Topic) -> URIRef:
@@ -86,9 +89,7 @@ class OutputRdf:
         elif isinstance(obj, Topic):
             if obj.article:
                 # Topics with link to wiki article
-                suffix = obj.article.url.rsplit('/', 1)[-1]
-                # no unquote_plus since spaces are _
-                suffix = unquote(suffix) 
+                suffix = self.__get_wiki_article_url_identifier(obj.article)
                 uri = article_topics_ns[suffix]
             else:
                 # Topics without link
@@ -97,7 +98,7 @@ class OutputRdf:
         return uri
     
     def __get_place_uri(self, article:Article) -> URIRef:
-        suffix = article.url.rsplit('/', 1)[-1]
+        suffix = self.__get_wiki_article_url_identifier(article)
         uri = locations_ns[suffix]
         return uri
     
@@ -115,7 +116,8 @@ class OutputRdf:
         return uri
     
     def __get_article_uri(self, article:Article) -> URIRef:
-        uri = wikipedia_article_ns[article.url.rsplit('/', 1)[-1]]
+        suffix = self.__get_wiki_article_url_identifier(article)
+        uri = wikipedia_article_ns[suffix]
         return uri
 
     def __get_timespan_uri(self, 
@@ -346,7 +348,7 @@ class OutputRdf:
         # source document (Wiki article url)
         source_uri = URIRef(str(article.url))
         base.add((source_uri, RDF.type, FOAF.Document))
-        base.add((article_uri, NIF.sourceUrl, source_uri)) 
+        base.add((article_uri, DCTERMS.source, source_uri)) 
 
         if article.infobox:
             raw.add((article_uri, COY.hasRawHtml, Literal(str(article.infobox), datatype=XSD.string)))
@@ -427,10 +429,14 @@ class OutputRdf:
         event_uri = self.__get_event_uri(event)
         context_uri = self.__get_context_uri(event)
 
-        ## E5_Event triples
+        ## Event triples
         base.add((event_uri, RDF.type, COY.NewsSummary))
         base.add((event_uri, RDF.type, COY.WikiNews))
         base.add((event_uri, RDF.type, COY.Event))
+
+        text_literal = Literal(str(event.text), datatype=XSD.string)
+        base.add((event_uri, RDFS.label, text_literal))
+        
         base.add((event_uri, COY.isIdentifiedBy, context_uri))
         base.add((event_uri, COY.hasTag, Literal(str(event.category), datatype=XSD.string)))
         self.__add_isodatetime_from_date(base, event_uri, event.date)
@@ -451,7 +457,7 @@ class OutputRdf:
 
         ## Context node triples
         base.add((context_uri, RDF.type, NIF.Context))
-        base.add((context_uri, RDFS.label, Literal(str(event.text), datatype=XSD.string)))
+        base.add((context_uri, RDFS.label, text_literal))
 
         # string
         base.add((context_uri, NIF.isString, Literal(str(event.text), datatype=XSD.string)))
@@ -537,42 +543,42 @@ class OutputRdf:
         if self.args.sample_mode and topic.date != datetime.datetime(2022,1,1) and topic.index != 0:
             return
         
-        ## E5_Event triples
-        e5_event_uri = self.__get_event_uri(topic)
+        ## Event triples
+        event_uri = self.__get_event_uri(topic)
 
-        base.add((e5_event_uri, RDF.type, COY.TextTopic))
-        base.add((e5_event_uri, RDF.type, COY.WikiNews))
-        base.add((e5_event_uri, RDF.type, COY.Event))
+        base.add((event_uri, RDF.type, COY.TextTopic))
+        base.add((event_uri, RDF.type, COY.WikiNews))
+        base.add((event_uri, RDF.type, COY.Event))
 
-        base.add((e5_event_uri, RDFS.label, Literal(str(topic.text), datatype=XSD.string)))
+        base.add((event_uri, RDFS.label, Literal(str(topic.text), datatype=XSD.string)))
         
         # store date of usage of this topic
-        self.__add_isodatetime_from_date(base, e5_event_uri, topic.date)
+        self.__add_isodatetime_from_date(base, event_uri, topic.date)
 
         # store raw html element of this topic
-        raw.add((e5_event_uri, COY.hasRawHtml, Literal(str(topic.raw), datatype=XSD.string)))
+        raw.add((event_uri, COY.hasRawHtml, Literal(str(topic.raw), datatype=XSD.string)))
 
         # connect to parent topics
         if topic.parentTopics:
             for pt in topic.parentTopics:
                 parent_e5 = self.__get_event_uri(pt)
-                base.add((e5_event_uri, COY.isOccuringDuring, parent_e5))
+                base.add((event_uri, COY.isOccuringDuring, parent_e5))
         
         if topic.article:
-            base.add((e5_event_uri, RDF.type, COY.ArticleTopic))
+            base.add((event_uri, RDF.type, COY.ArticleTopic))
 
             # add article
             article_uri, place_uri = self.__add_article_triples(topic.article, is_topic_article=True)
-            base.add((e5_event_uri, GN.wikipediaArticle, article_uri))
+            base.add((event_uri, GN.wikipediaArticle, article_uri))
 
             # connect place with event
             if place_uri:
-                base.add((e5_event_uri, COY.hasLocation, place_uri))
+                base.add((event_uri, COY.hasLocation, place_uri))
             
             # add timespan
             timespan_uri = self.__add_timespan(base, topic.article)
             if timespan_uri:
-                base.add((e5_event_uri, COY.hasTimespan, timespan_uri))
+                base.add((event_uri, COY.hasTimespan, timespan_uri))
 
 
     def __load_graph(self, filename:str, dest_graph:Graph):
