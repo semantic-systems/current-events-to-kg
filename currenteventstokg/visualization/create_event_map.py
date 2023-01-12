@@ -437,10 +437,11 @@ PREFIX coy: <https://schema.coypu.org/global#>
 PREFIX gn: <https://www.geonames.org/ontology#>
 PREFIX geo: <http://www.opengis.net/ont/geosparql#>
 PREFIX nif: <http://persistence.uni-leipzig.org/nlp2rdf/ontologies/nif-core#>
+PREFIX dcterms: <http://purl.org/dc/terms/>
 
 SELECT DISTINCT ?e ?wd_wkt FROM <${month}_${year}> WHERE{
-    ?e  a coy:WikiNews;
-        coy:isOccuringDuring+/gn:wikipediaArticle <https://en.wikipedia.org/wiki/2022_Russian_invasion_of_Ukraine>;
+    ?e  a coy:NewsSummary;
+        coy:isOccuringDuring+/gn:wikipediaArticle/dcterms:source <https://en.wikipedia.org/wiki/2022_Russian_invasion_of_Ukraine>;
         coy:hasMentionDate ?date;
         coy:isIdentifiedBy ?c.
     ?c  nif:subString/nif:subString/gn:wikipediaArticle ?a.

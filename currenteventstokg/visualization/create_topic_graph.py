@@ -356,28 +356,30 @@ class TopicGraphDiagram:
             PREFIX coy: <https://schema.coypu.org/global#>
             PREFIX schema: <https://schema.org/>
             PREFIX gn: <https://www.geonames.org/ontology#>
-            PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+            PREFIX dcterms: <http://purl.org/dc/terms/>
+            PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
             
             SELECT DISTINCT ?pt ?t ?pl ?l ?a_date (MIN(?date) as ?date) $from_string WHERE{
-                ?pt a coy:WikiNews;
-                    (coy:isOccuringDuring*)/gn:wikipediaArticle <https://en.wikipedia.org/wiki/2022_Russian_invasion_of_Ukraine> ;
+                ?pt a coy:TextTopic;
+                    (coy:isOccuringDuring*)/gn:wikipediaArticle/dcterms:source <https://en.wikipedia.org/wiki/2022_Russian_invasion_of_Ukraine> ;
                     coy:hasMentionDate ?date.
                 ?t coy:isOccuringDuring ?pt;
                    coy:hasMentionDate ?date.
 
-                { ?t gn:wikipediaArticle [ schema:name ?l ]. } 
-                UNION {
-                    ?t coy:isIdentifiedBy ?l.
-                    FILTER(DATATYPE(?l) = xsd:string).
-                    FILTER NOT EXISTS{?t gn:wikipediaArticle ?a.}
+                { 
+                    ?t  a coy:ArticleTopic;
+                        gn:wikipediaArticle [ schema:name ?l ]. 
+                } UNION {
+                    ?t  a coy:TextTopic;
+                        rdfs:label ?l.
                 }
 
-                { ?pt gn:wikipediaArticle [ schema:name ?pl ]. } 
-                UNION 
-                {
-                    ?pt coy:isIdentifiedBy ?pl.
-                    FILTER(DATATYPE(?pl) = xsd:string).
-                    FILTER NOT EXISTS{?pt gn:wikipediaArticle ?pa.}
+                { 
+                    ?pt a coy:ArticleTopic;
+                        gn:wikipediaArticle [ schema:name ?pl ]. 
+                } UNION {
+                    ?pt a coy:TextTopic;
+                        rdfs:label ?pl.
                 }
                     
                 OPTIONAL{

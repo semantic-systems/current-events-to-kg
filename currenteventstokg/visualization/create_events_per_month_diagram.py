@@ -86,14 +86,12 @@ class NumEventsPerMonthDiagram(CurrentEventDiagram):
             q = """
                 PREFIX coy: <https://schema.coypu.org/global#>
                 PREFIX gn: <https://www.geonames.org/ontology#>
-                PREFIX nif: <http://persistence.uni-leipzig.org/nlp2rdf/ontologies/nif-core#>
+                PREFIX dcterms: <http://purl.org/dc/terms/>
 
                 SELECT DISTINCT ?year ?month (COUNT(?e) as ?num) WHERE{
-                    ?e  (coy:isOccuringDuring)*/gn:wikipediaArticle <https://en.wikipedia.org/wiki/2022_Russian_invasion_of_Ukraine>;
-                        a coy:WikiNews;
-                        coy:isIdentifiedBy ?c;
+                    ?e  (coy:isOccuringDuring)*/gn:wikipediaArticle/dcterms:source <https://en.wikipedia.org/wiki/2022_Russian_invasion_of_Ukraine>;
+                        a coy:NewsSummary;
                         coy:hasMentionDate ?date.
-                    ?c a nif:Context.
                     BIND(MONTH(?date) as ?month).
                     BIND(YEAR(?date) as ?year).
                 } GROUP BY ?year ?month"""

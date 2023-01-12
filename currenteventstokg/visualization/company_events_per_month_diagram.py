@@ -54,7 +54,7 @@ class NumCompanyEventsPerMonthDiagram(CurrentEventDiagram, Sleeper):
                 PREFIX wdt: <http://www.wikidata.org/prop/direct/>
     
                 SELECT DISTINCT ?year ?month ?wd ?type ?e ?text ?link_text WHERE{
-                    ?e  a coy:WikiNews;
+                    ?e  a coy:NewsSummary;
                         coy:hasMentionDate ?date;
                         coy:isIdentifiedBy ?c.
  
@@ -143,12 +143,12 @@ class NumCompanyEventsPerMonthDiagram(CurrentEventDiagram, Sleeper):
     def countCompanies(self, force=False):
         q = """
         PREFIX coy: <https://schema.coypu.org/global#>
-        PREFIX crm: <http://www.cidoc-crm.org/cidoc-crm/>
         PREFIX gn: <https://www.geonames.org/ontology#>
         PREFIX nif: <http://persistence.uni-leipzig.org/nlp2rdf/ontologies/nif-core#>
         PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+
         SELECT DISTINCT ?wd ?type WHERE{
-            ?e  a coy:WikiNews;
+            ?e  a coy:NewsSummary;
                 coy:isIdentifiedBy ?c.
             ?c  a nif:Context;
                 nif:subString/nif:subString/gn:wikipediaArticle ?a.
