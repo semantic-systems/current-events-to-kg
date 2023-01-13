@@ -494,13 +494,13 @@ class OutputRdf:
                 base.add((sentence_uri, NIF.previousSentence, lastSentenceUri))
                 base.add((lastSentenceUri, NIF.nextSentence, sentence_uri))
 
-            # links per sentence as nif:Phase
+            # links per sentence as nif:Phrase
             for j, link in enumerate(sentence.links):
                 article = link.article
 
                 # link
                 link_uri = self.__get_phrase_uri(sentence_uri, j)
-                base.add((link_uri, RDF.type, NIF.Phase))
+                base.add((link_uri, RDF.type, NIF.Phrase))
                 base.add((link_uri, RDFS.label, Literal(str(link.text), datatype=XSD.string)))
 
                 base.add((link_uri, NIF.referenceContext, sentence_uri))
