@@ -43,7 +43,7 @@ if __name__ == '__main__':
         action='store_true', 
         help="Parse again even if graph for this month exists in cache")
     
-    parser.add_argument('-ihc', '--ignore_wiki_cache', 
+    parser.add_argument('-iwc', '--ignore_wiki_cache', 
         action='store_true', 
         help="Ignore cache of Wikipedia wiki pages")
     
