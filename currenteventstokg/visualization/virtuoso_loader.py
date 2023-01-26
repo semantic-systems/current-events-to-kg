@@ -135,19 +135,27 @@ if __name__ == "__main__":
         type=str,
         required=True)
     
+    parser.add_argument('-ge', '--graph_extensions', 
+        action='store', 
+        help="Which graph extensions should be loaded besides base, seperated by comma. (e.g. -ge osm,ohg,raw)",
+        type=str,
+        default="osm")
+    
     args = parser.parse_args()
 
     virtuoso_dir = Path(args.virtuoso_dir)
+
+    graph_extensions = [ge for ge in args.graph_extensions.split((","))]
 
     # make sure dir exists
     ttl_dir = virtuoso_dir / "ttl_files"
     makedirs(ttl_dir, exist_ok=True)
     
     if args.load:
-        loadMonth(args.load, virtuoso_dir)
+        loadMonth(args.load, virtuoso_dir, graph_extensions)
     
     if args.bulk_load:
-        bulkLoadMonths(args.bulk_load, virtuoso_dir, args.num_processes)
+        bulkLoadMonths(args.bulk_load, virtuoso_dir, args.num_processes, graph_extensions)
     
     if args.bulk_drop:
         bulkDropMonths(args.bulk_drop, virtuoso_dir)
