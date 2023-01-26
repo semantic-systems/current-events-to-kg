@@ -99,6 +99,10 @@ if __name__ == '__main__':
         action='store_true', 
         help="If used will update the specified files while only ignoring wikipedia and wikidata caches.")
     
+    parser.add_argument('-doe', '--delete_old_entities', 
+        action='store_true', 
+        help="Will delete old entity versions of currently extracted entities in the graph of the dataset endpoint.")
+    
     # store
     parser.add_argument('-msd', '--monthly_start_day', 
         action='store', 
@@ -160,6 +164,22 @@ if __name__ == '__main__':
         type=int,
         help="Minimum seconds between requests to the nominatim endpoint (only change to values allowed by your endpoint!)", 
         default=2)
+    
+    parser.add_argument('-de', '--dataset_endpoint',
+        action='store', 
+        help="Sets the sparql endpoint URL of the dataset.")
+    
+    parser.add_argument('-des', '--dataset_endpoint_subgraph',
+        action='store', 
+        help="The subgraph used for the dataset.")
+    
+    parser.add_argument('-deu', '--dataset_endpoint_username',
+        action='store', 
+        help="The username used for the dataset sparql endpoint.")
+    
+    parser.add_argument('-dep', '--dataset_endpoint_pw',
+        action='store', 
+        help="The password used for the dataset sparql endpoint.")
     
     
     args = parser.parse_args()

@@ -16,6 +16,7 @@ from .objects.event import Event
 from .objects.infoboxRow import InfoboxRowDate, InfoboxRowTime, InfoboxRowLocation
 from .objects.topic import Topic
 from .objects.osmElement import OSMElement
+from .graphConsistencyKeeper import GraphConsistencyKeeper
 
 # data under https://data.coypu.org/ENTITY-TYPE/DATA-SOURCE/ID
 events_ns = Namespace("https://data.coypu.org/newssummary/wikipedia-current-events/newssummary/")
@@ -57,6 +58,14 @@ class OutputRdf:
             "ohg": Graph(),
             "osm": Graph(),
         }
+
+        self.gck = GraphConsistencyKeeper(
+            self.args.dataset_endpoint, 
+            self.args.dataset_endpoint_subgraph, 
+            self.args.dataset_endpoint_username, 
+            self.args.dataset_endpoint_pw
+        )
+
 
     def __get_osm_uri(self, osmElement:OSMElement) -> URIRef:
         suffix = str(osmElement.osmType) + "_" + str(osmElement.osmId)
@@ -175,6 +184,10 @@ class OutputRdf:
                 graph.add((osmuri, COY.hasOsmId, Literal(str(osmElement.osmId), datatype=XSD.integer)))
             if osmElement.wkt:
                 graph.add((osmuri, GEO.asWKT, Literal(str(osmElement.wkt), datatype=GEO.wktLiteral)))
+        
+        # delete old triples in dataset endpoint
+        if self.args.delete_old_entities:
+            self.gck.delete_osmelement_triples(osmuri)
     
 
     def __add_place(self, graph:Graph, article:Article) -> URIRef:
@@ -380,7 +393,12 @@ class OutputRdf:
         
         # add labels of classes which entity is instance of (classes are URIs of wd:entity in 1hop graph)
         for entityId, label in article.classes_with_labels.items():
-            ohg.add((URIRef(WD[entityId]), RDFS.label, Literal(str(label), datatype=XSD.string)))
+            wd_class_entity_uri = URIRef(WD[entityId])
+            ohg.add((wd_class_entity_uri, RDFS.label, Literal(str(label), datatype=XSD.string)))
+
+            # delete old triple in dataset endpoint
+            if self.args.delete_old_entities:
+                self.gck.delete_label_triples(wd_class_entity_uri)
         
         # add doc infos
         if article.date_published:
@@ -398,6 +416,10 @@ class OutputRdf:
         for row in loc_rows:
             for l in row.valueLinks:
                 self.__addOsmElement(article_uri, row.valueLinks_wkts[l])
+            
+        # delete old triples in dataset endpoint
+        if self.args.delete_old_entities:
+            self.gck.delete_article_and_location_triples(article_uri)
 
         return article_uri, place_uri
 
@@ -533,6 +555,10 @@ class OutputRdf:
         if len(wd_loc_article_URIs4counting_leafs) > 1:
             self.analytics.numEventsWithMoreThanOneLeafLocation += 1
         
+        # delete old triples in dataset endpoint
+        if self.args.delete_old_entities:
+            self.gck.delete_newssummary_triples(event_uri)
+        
     
     def storeTopic(self, topic: Topic):
         base = self.graphs["base"]
@@ -579,6 +605,10 @@ class OutputRdf:
             timespan_uri = self.__add_timespan(base, topic.article)
             if timespan_uri:
                 base.add((event_uri, COY.hasTimespan, timespan_uri))
+        
+        # delete old triples in dataset endpoint
+        if self.args.delete_old_entities:
+            self.gck.delete_topic_triples(event_uri)
 
 
     def __load_graph(self, filename:str, dest_graph:Graph):
