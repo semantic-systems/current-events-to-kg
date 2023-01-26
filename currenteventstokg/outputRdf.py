@@ -19,7 +19,7 @@ from .objects.osmElement import OSMElement
 from .graphConsistencyKeeper import GraphConsistencyKeeper
 
 # data under https://data.coypu.org/ENTITY-TYPE/DATA-SOURCE/ID
-events_ns = Namespace("https://data.coypu.org/newssummary/wikipedia-current-events/newssummary/")
+events_ns = Namespace("https://data.coypu.org/newssummary/wikipedia-current-events/")
 article_topics_ns = Namespace("https://data.coypu.org/articletopic/wikipedia-current-events/")
 text_topics_ns = Namespace("https://data.coypu.org/texttopic/wikipedia-current-events/")
 contexts_ns = Namespace("https://data.coypu.org/context/wikipedia-current-events/")
