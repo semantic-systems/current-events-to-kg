@@ -340,9 +340,9 @@ class OutputRdf:
             elif ongoing_flag_slot:
                 graph.add((timespan_uri, COY.hasOngoingSpan, Literal("true", datatype=XSD.boolean)))
             if start_time_slot:
-                graph.add((timespan_uri, COY.hasStartTime, Literal(start_time_slot, datatype=XSD.time)))
+                graph.add((timespan_uri, COY.hasStartTimestamp, Literal(start_time_slot, datatype=XSD.time)))
             if end_time_slot:
-                graph.add((timespan_uri, COY.hasEndTime, Literal(end_time_slot, datatype=XSD.time)))
+                graph.add((timespan_uri, COY.hasEndTimestamp, Literal(end_time_slot, datatype=XSD.time)))
         
         return timespan_uri
     
