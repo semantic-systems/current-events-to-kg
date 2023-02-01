@@ -89,6 +89,9 @@ class AverageGraphModuleSize(CurrentEventDiagram):
     def createDiagram(self, force=True):
         fig, (ax1, ax2) = plt.subplots(1,2, layout="constrained", figsize=(6,3))
 
+        ax1.tick_params(axis='x', which='minor', bottom=False)
+        ax2.tick_params(axis='x', which='minor', bottom=False)
+
         self.create_triple_num_diagram(ax1, force)
         self.create_file_size_diagram(ax2, force)
         
