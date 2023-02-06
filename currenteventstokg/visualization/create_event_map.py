@@ -119,14 +119,14 @@ class EventMap:
             gdf = read_parquet(cache_path)
         else:
             start_t_month = time()
-            data, geometry = self._queryMonth(self.year, self.month, force)
+            data, geometry = self._queryMonth(self.year, self.month, force, no_ua)
             print(f"{(time() - start_t_month)/60}min for querying {self.month_str}_{self.year}")
             gdf = GeoDataFrame(data=data, geometry=geometry)
             #print("Columns:", gdf.columns)
 
             gdf.to_parquet(cache_path)
 
-        gdf = self._calculate_gdf_columns(gdf, no_ua)
+        gdf = self._calculate_gdf_columns(gdf)
         
         self.month_gdf = gdf
     
@@ -140,10 +140,6 @@ class EventMap:
             
         in_ua = rps.within(ua_bounds)
         gdf = gdf[in_ua]
-
-        # remove row with whole ua
-        if no_ua:
-            gdf = gdf[gdf.geometry != ua_bounds]
         
         # sum days up
         sum_label = f"sum"
@@ -232,7 +228,7 @@ class EventMap:
         if exists(cache_path):
             gdf = read_parquet(cache_path)
         else:
-            data, geometry = self._queryDay(day, self.month, self.year, force_query)
+            data, geometry = self._queryDay(day, self.month, self.year, force_query, no_ua)
 
             gdf = GeoDataFrame(data=data, geometry=geometry)
             print("Columns:", gdf.columns)
@@ -352,7 +348,7 @@ class EventMap:
         return fig
 
 
-    def _queryMonth(self, year:int, month:int, force:bool) -> Tuple[Dict, List]:
+    def _queryMonth(self, year:int, month:int, force:bool, no_ua:bool) -> Tuple[Dict, List]:
         cache_file_path_month = self.cache_dir / f"{months[month-1]}_{year}.json"
         
         data = {}
@@ -360,7 +356,7 @@ class EventMap:
 
         month_ids = []
         for day in range(1,32):
-            data_day, wkt2id = self._querySparql(day, month, year, wkt2id, force)
+            data_day, wkt2id = self._querySparql(day, month, year, wkt2id, force, no_ua)
             
             # append day to data
             date = f"{year}-{month}-{day}"
@@ -386,7 +382,7 @@ class EventMap:
 
     def _load_wkt2id(self):
         if exists(self.wkt2id_path):
-            print(f"Loading wkt2id from cache...")
+            print(f"Loading wkt2id from {self.wkt2id_path} ...")
             with open(self.wkt2id_path, "r", encoding="utf-8") as f:
                 wkt2id = json.load(f)
         else:
@@ -397,12 +393,13 @@ class EventMap:
     def _cache_wkt2id(self, wkt2id):
         with open(self.wkt2id_path, "w", encoding="utf-8") as f:
             json.dump(wkt2id, f, separators=(",",":"))
+        print(f"Cached wkt2id to {self.wkt2id_path}...")
+        
 
-
-    def _queryDay(self, day:int, month:int, year:int, force:bool=False) -> Tuple[Dict, List]:
+    def _queryDay(self, day:int, month:int, year:int, force:bool=False, no_ua:bool=True) -> Tuple[Dict, List]:
         wkt2id = self._load_wkt2id()
 
-        data_day, wkt2id = self._querySparql(day, month, year, wkt2id, False)
+        data_day, wkt2id = self._querySparql(day, month, year, wkt2id, False, no_ua)
         
         date = f"{year}-{month}-{day}"
         data = {}
@@ -418,8 +415,8 @@ class EventMap:
         return data, geometry
 
 
-    def _querySparql(self, day:int, month:int, year:int, wkt2id:Dict[str,int], force:bool) -> Tuple[Dict, Dict]:
-        cache_file_path_day = self.cache_dir / f"{year}-{month}-{day}.json"
+    def _querySparql(self, day:int, month:int, year:int, wkt2id:Dict[str,int], force:bool, no_ua:bool) -> Tuple[Dict, Dict]:
+        cache_file_path_day = self.cache_dir / f"{year}-{month}-{day}-{no_ua}.json"
 
         if exists(cache_file_path_day) and len(wkt2id) != 0 and not force:
             print(f"Loading {cache_file_path_day} from cache...")
@@ -430,6 +427,8 @@ class EventMap:
                 data_day = {int(k):int(v) for k,v in data_day.items()}
         else:
             print("Query day", day)
+
+            no_ua_filter = "FILTER(?osm_id != 60199 or ?osm_type != \"relation\")" if no_ua else ""
 
             start_t_day = time()
             q = Template("""
@@ -450,11 +449,16 @@ SELECT DISTINCT ?e ?wd_wkt FROM <${month}_${year}> WHERE{
     UNION
     {?a  coy:hasOsmElement ?osm.}
 
-    ?osm geo:asWKT ?wd_wkt.
+    ?osm geo:asWKT ?wd_wkt;
+        coy:hasOsmId ?osm_id;
+        coy:hasOsmType ?osm_type.
+    
     ?p  a coy:Location;
         gn:wikipediaArticle ?a.
+    
     FILTER(DAY(?date) = $day)
-}""").substitute(day=day, month=months[month-1], year=year)
+    $no_ua
+}""").substitute(day=day, month=months[month-1], year=year, no_ua=no_ua_filter)
 
             sparql = SPARQLWrapper("http://localhost:8890/sparql")
 
@@ -588,7 +592,7 @@ if __name__ == "__main__":
         m.createDayMap(int(day), args.force, vmax=args.vmax, label=label, no_ua=no_whole_ua)
 
     else:
-        m = graph_name_list(202202, 202208)
+        m = graph_name_list(202202, 202212)
         base_files = [f"{gn}_base.jsonld" for gn in m]
         print(base_files)
 
