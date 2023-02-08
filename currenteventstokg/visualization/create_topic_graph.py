@@ -225,6 +225,7 @@ class TopicGraphDiagram:
 
         if tree:
             g = self._dailys2Tree(res)
+            tree = nx.DiGraph(g)
 
             # compute transitive reduction
             temp_g = self._dailys2DiGraph_DAG(res)
@@ -274,7 +275,7 @@ class TopicGraphDiagram:
                         topics = res[year][month][day]
 
                         if tree:
-                            new_nodes = self._add_edges_forming_tree(g, tr_g, topics, self.root)
+                            new_nodes = self._add_edges_if_in_tree(g, tree, topics)
                         else:
                             new_nodes = self._addTopicsToGraph(g, topics)
 
@@ -370,8 +371,9 @@ class TopicGraphDiagram:
                     ?t  a coy:ArticleTopic;
                         gn:wikipediaArticle [ schema:name ?l ]. 
                 } UNION {
-                    ?t  a coy:TextTopic;
+                    ?t a coy:TextTopic;
                         rdfs:label ?l.
+                    FILTER NOT EXISTS{?t a coy:ArticleTopic}.
                 }
 
                 { 
@@ -380,6 +382,7 @@ class TopicGraphDiagram:
                 } UNION {
                     ?pt a coy:TextTopic;
                         rdfs:label ?pl.
+                    FILTER NOT EXISTS{?pt a coy:ArticleTopic}.
                 }
                     
                 OPTIONAL{
@@ -491,24 +494,24 @@ class TopicGraphDiagram:
         temp_g = self._dailys2DiGraph_DAG(dailys)
         tr_g = nx.transitive_reduction(temp_g)
 
-        g = nx.DiGraph()
-        g.add_node(self.root)
+        g = nx.DiGraph(tr_g)
 
-        for year in sorted(dailys):
-            for month in sorted(dailys[year]):
-                for day in sorted(dailys[year][month]):
+        for year in sorted(dailys, reverse=True):
+            for month in sorted(dailys[year], reverse=True):
+                for day in sorted(dailys[year][month], reverse=True):
                     topics = dailys[year][month][day]
-                    self._add_edges_forming_tree(g, tr_g, topics, self.root)
+                    self._remove_edge_if_two_ingoing(g, topics, self.root)
+
         return g
 
 
-    def _add_edges_forming_tree(self, g:nx.DiGraph, transitive_reduction:nx.DiGraph, topics, root):
+    def _add_edges_if_in_tree(self, g:nx.DiGraph, tree:nx.DiGraph, topics):
         new_nodes = []
         for topic in topics:
             pt = topic["pl"]
             t = topic["l"]
             
-            if transitive_reduction.has_edge(pt, t) and not (g.has_node(root) and g.has_node(t) and nx.has_path(g, root, t)):
+            if tree.has_edge(pt, t):
                 if not g.has_node(t):
                     new_nodes.append(t)
                 if not g.has_node(pt):
@@ -516,7 +519,18 @@ class TopicGraphDiagram:
 
                 g.add_edge(pt,t)
         
-        return new_nodes  
+        return new_nodes 
+
+    def _remove_edge_if_two_ingoing(self, g:nx.DiGraph, topics, root):
+        for topic in topics:
+            pt = topic["pl"]
+            t = topic["l"]
+
+            if g.has_edge(pt,t) and g.in_degree(t) > 1 :
+                g.remove_edge(pt,t) 
+                if not g.has_node(t) or (g.has_node(t) and not nx.has_path(g,root,t)):
+                    g.add_edge(pt,t)
+            
 
     
     def _addTopicsToGraph(self, g, topics):
@@ -541,9 +555,11 @@ class TopicGraphDiagram:
         qres = self._queryTopicsArticleDate(force)
 
         start = datetime.datetime(self.start_year, self.start_month, 1)
-        after_year = self.end_year if self.end_month==12 else self.end_year+1
+
+        after_year = self.end_year if self.end_month!=12 else self.end_year+1
         after_month = ((self.end_month+1)%12)
         after = datetime.datetime(after_year, after_month, 1)
+        print(f"Cutoff date: {after}")
 
         res = {}
         print("rowcount:", len(qres["results"]["bindings"]))
@@ -592,7 +608,7 @@ class TopicGraphDiagram:
                     "pl":pl,
                 })
             else:
-                print("after or none", date, pl, "->", l)
+                print("after end date or no date specified:", date, pl, "->", l)
         return res
 
 if __name__ == "__main__":
