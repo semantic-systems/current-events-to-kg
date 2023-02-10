@@ -52,6 +52,9 @@ class NumCompanyEventsPerMonthDiagram(CurrentEventDiagram, Sleeper):
             q = """
                 PREFIX coy: <https://schema.coypu.org/global#>
                 PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+                PREFIX nif: <http://persistence.uni-leipzig.org/nlp2rdf/ontologies/nif-core#>
+                PREFIX gn: <https://www.geonames.org/ontology#>
+                PREFIX owl: <http://www.w3.org/2002/07/owl#>
     
                 SELECT DISTINCT ?year ?month ?wd ?type ?e ?text ?link_text WHERE{
                     ?e  a coy:NewsSummary;
@@ -146,6 +149,7 @@ class NumCompanyEventsPerMonthDiagram(CurrentEventDiagram, Sleeper):
         PREFIX gn: <https://www.geonames.org/ontology#>
         PREFIX nif: <http://persistence.uni-leipzig.org/nlp2rdf/ontologies/nif-core#>
         PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+        PREFIX owl: <http://www.w3.org/2002/07/owl#>
 
         SELECT DISTINCT ?wd ?type WHERE{
             ?e  a coy:NewsSummary;
