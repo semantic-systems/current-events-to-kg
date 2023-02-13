@@ -193,6 +193,17 @@ SELECT ?p ?o WHERE {
         # osmrelids: eg 62422  -> https://www.wikidata.org/wiki/Property:P402
         # osmobjs: [way|node]/{id} -> https://www.wikidata.org/wiki/Property:P10689
 
+        def isValidOSMObject(x:str):
+            a,b = x.split("/", 1)
+            if a in ["way", "node"] and b.isdecimal():
+                return True
+            return False
+        
+        def isValidOSMRelation(x:str):
+            if x.isdecimal():
+                return True
+            return False
+
         if not self.args.ignore_wikidata_osm_entity_cache and entityURI in self.osmCache:
             res = self.osmCache[entityURI]
             osmrelids, osmobjs = res["osmrelids"], res["osmobjs"]
@@ -211,9 +222,13 @@ SELECT DISTINCT ?osmrelid ?osmobj WHERE {
             osmrelidsSet, osmobjsSet = set(), set()
             for row in results["results"]["bindings"]:
                 if "osmrelid" in row:
-                    osmrelidsSet.add(row["osmrelid"]["value"])
+                    value = row["osmrelid"]["value"]
+                    if isValidOSMRelation(value):
+                        osmrelidsSet.add(value)
                 if "osmobj" in row:
-                    osmobjsSet.add(row["osmobj"]["value"])
+                    value = row["osmobj"]["value"]
+                    if isValidOSMObject(value):
+                        osmobjsSet.add(value)
             
             osmobjs = list(osmobjsSet)
             osmrelids = list(osmrelidsSet)
