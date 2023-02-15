@@ -460,7 +460,10 @@ class OutputRdf:
         base.add((event_uri, RDFS.label, text_literal))
         
         base.add((event_uri, COY.isIdentifiedBy, context_uri))
-        base.add((event_uri, COY.hasTag, Literal(str(event.category), datatype=XSD.string)))
+
+        if event.category:
+            base.add((event_uri, COY.hasTag, Literal(str(event.category), datatype=XSD.string)))
+        
         self.__add_isodatetime_from_date(base, event_uri, event.date)
 
         raw.add((event_uri, COY.hasRawHtml, Literal(str(event.raw), datatype=XSD.string)))
@@ -491,13 +494,30 @@ class OutputRdf:
         base.add((context_uri, NIF.sourceUrl, source_uri)) 
         base.add((source_uri, RDF.type, FOAF.Document))
 
-        # the news sources
+        # the news sources from behind the event summary
         for l in event.sourceLinks:
             source_link_uri = URIRef(l.href)
 
             base.add((context_uri, DCTERMS.source, source_link_uri))
             base.add((source_link_uri, RDF.type, COY.News))
             base.add((source_link_uri, RDFS.label, Literal(str(l.text), datatype=XSD.string)))
+
+            # delete old triples in dataset endpoint
+            if self.args.delete_old_entities:
+                self.gck.delete_news_source_triples(source_link_uri)
+
+        # the news sources refrenced through [xx] down below.
+        for ref in event.sourceReferences:
+            source_link_uri = URIRef(ref.url)
+            print(source_link_uri)
+
+            base.add((context_uri, DCTERMS.source, source_link_uri))
+            base.add((source_link_uri, RDF.type, COY.News))
+            base.add((source_link_uri, RDFS.label, Literal(str(ref.anchor_text), datatype=XSD.string)))
+
+            # delete old triples in dataset endpoint
+            if self.args.delete_old_entities:
+                self.gck.delete_news_source_triples(source_link_uri)
 
         # sentences
         lastSentenceUri = None

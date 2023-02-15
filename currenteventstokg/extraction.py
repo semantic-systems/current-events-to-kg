@@ -27,6 +27,7 @@ from .objects.event import Event
 from .objects.osmElement import OSMElement
 from .objects.sentence import Sentence
 from .objects.topic import Topic
+from .objects.reference import Reference
 from .wikidataService import WikidataService
 
 
@@ -119,6 +120,11 @@ class Extraction:
                 text += c
                 curIndex += len(c)
             elif(isinstance(c, Tag)):
+
+                # skip citations in <sup> tags
+                if c.name == "sup":
+                    continue
+
                 textRec, linksRec, sourceTextRec, sourceLinksRec = self.__parseEventTagRecursive(
                     c, links, sourceLinks, curIndex)
                 textLength = len(textRec)
@@ -725,10 +731,29 @@ class Extraction:
                     topics.append(t)
 
             return topics
+    
 
+    def __extract_reference_numbers_from_event(self, x:Tag) -> List[int]:
+        refs = []
+
+        sups = x.find_all("sup")
+
+        for sup in sups:
+            if "id" in sup.attrs:
+                sup_id = str(sup.attrs["id"])
+
+                if sup_id.startswith("cite_ref-"):
+                    ref_nr = self.__get_nr_from_cite_id(sup_id)
+                    refs.append(ref_nr)
+        
+        return refs
+        
     
     def __parse_event(self, x:Tag, parentTopics:List[Topic], events_index:int, 
-            category:str, date:datetime.date, sourceUrl:str) -> Event:
+            category:Optional[str], date:datetime.date, sourceUrl:str,
+            references:Dict[int,List[Reference]]
+        ) -> Event:
+
         # parse
         text, links, sourceText, sourceLinks = self.__parseEventTagRecursive(x)
 
@@ -743,9 +768,15 @@ class Extraction:
         eventTypes = self.__searchForEventTypesRecursive(parentTopics)
         if len(eventTypes) > 0:
             self.analytics.numEventsWithType += 1
+        
+        # extract references/citations
+        reference_numbers = self.__extract_reference_numbers_from_event(x)
+
+        # get references extracted from below
+        referenced_sources = [ref for nr,ref in references.items() if nr in reference_numbers]
 
         return Event(str(x), parentTopics, text, sourceUrl, date, sentences, 
-                sourceLinks, sourceText, eventTypes, events_index, category)
+                sourceLinks, sourceText, eventTypes, events_index, category, referenced_sources)
     
 
     def __splitEventTextIntoSentences(self, text:str, wikiLinks:List[Link]) -> List[Sentence]:
@@ -830,8 +861,106 @@ class Extraction:
         return eventTypes
 
 
+    def __extract_events_from_ul(self, eventList:Tag, category:Optional[str], 
+            tnum:int, evnum:int, date:datetime.date, sourceUrl:str, 
+            references:Dict[int,List[Reference]]
+        ) -> Tuple[int,int]:
+
+        # extract events under their topics iteratively
+        stack = []  # stack with [parentTopics, li]
+
+        lis = eventList.find_all("li", recursive=False)
+        stack += [[[], li] for li in lis[::-1]]
+        while(len(stack) > 0):
+            # get next li tag with its topics
+            parentTopics, li = stack.pop()
+
+            # li has ul's ? topic : event
+            ul = li.find("ul")
+            if(ul == None):  # li == event
+                print("E", end="", flush=True)
+                e = self.__parse_event(li, parentTopics, evnum, category, date, sourceUrl, references)
+
+                self.analytics.numEvents += 1
+                self.outputData.storeEvent(e)
+                evnum += 1
+                
+            else:  # li == topic(s)
+                print("T", end="", flush=True)
+                topics = self.__parseTopic(li, parentTopics, date, tnum, sourceUrl)
+
+                for t in topics:
+                    self.analytics.numTopics += 1
+                    self.outputData.storeTopic(t)
+                    tnum += 1
+                    
+                # append subelements to stack
+                subelements = ul.find_all("li", recursive=False)
+                subelementsAndParentTopic = [
+                    [topics, st] for st in subelements[::-1]]
+                stack += subelementsAndParentTopic
+        
+        return tnum, evnum
+
+    
+    def __get_nr_from_cite_id(self, id_str:str) -> int:
+        return  int(id_str.split("-")[-1])
+
+    
+    def __extract_reference(self, li:Tag) -> Optional[Reference]:
+        self.analytics.numReferences += 1
+
+        ref_nr = self.__get_nr_from_cite_id(str(li.attrs["id"]))
+        
+        cite_tag = li.find("cite")
+
+        # only news references
+        if "class" in cite_tag.attrs and "news" in cite_tag.attrs["class"]:
+            self.analytics.numReferencesNews += 1
+
+            a_tags = cite_tag.find_all("a")
+            ref_links = []
+            for a_tag in a_tags:
+                if "href" in a_tag.attrs \
+                    and "class" in a_tag.attrs and "external" in a_tag.attrs["class"]:
+
+                    url = a_tag.attrs["href"]
+                    anchor_text, _ = self.__getTextAndLinksRecursive(a_tag)
+                    
+                    return Reference(ref_nr, url, anchor_text)
+        
+
+    def __extract_references_from_page(self, page:Tag) -> Dict[int,List[Reference]]:
+        references = {}
+
+        reflist = page.select_one(".reflist")
+        if reflist:
+            ol = reflist.select_one(".references")
+            assert ol.name == "ol"
+
+            for li in ol.children:
+                if li.name == "li" and "id" in li.attrs:
+                    li_id = str(li.attrs["id"])
+
+                    if li_id.startswith("cite_note-"):
+                        ref = self.__extract_reference(li)
+                        
+                        if ref:
+                            assert ref.nr not in references
+                            references[ref.nr] = ref
+                
+        return references
+
+
+
+
     def parsePage(self, sourceUrl, page, year, monthStr):
         soup = BeautifulSoup(page, self.bs_parser)
+
+        # get all links from all superscript [x] references from the bottom of the page
+        references = self.__extract_references_from_page(soup)
+
+        # parse all available days
         for day in range(self.args.monthly_start_day, self.args.monthly_end_day+1):
             self.analytics.dayStart()
 
@@ -854,44 +983,30 @@ class Extraction:
                         or (tag.name == "div" and tag.has_attr('class') \
                         and "current-events-content-heading" in tag.attrs["class"])
                 categories = description.find_all(is_category, recursive=False)
+                
+                # crate list of event lists
+                event_lists = {} # list of ul lists of events with category str as key
+                if categories:
+                    ## format with categories from 2004
+                    for i in categories:
+                        category, _ = self.__getTextAndLinksRecursive(i)
+                        eventList = i.find_next_sibling("ul")
+                        event_lists[category] = eventList
+                else:
+                    ## format where no categories are used prior to 2004
+
+                    # eventList = description.find_next_sibling("ul")
+                    # ^ does not work somehow?? but iterateing over children works...
+                    for child in description.children:
+                        if child.name == "ul":
+                            event_lists[None] = child
+                
+                # extract all events
                 tnum = 0
                 evnum = 0
-                for i in categories:
-                    category, _ = self.__getTextAndLinksRecursive(i)
-                    eventList = i.find_next_sibling("ul")
-
-                    # extract events under their topics iteratively
-                    stack = []  # stack with [parentTopics, li]
-                    lis = eventList.find_all("li", recursive=False)
-                    stack += [[[], li] for li in lis[::-1]]
-                    while(len(stack) > 0):
-                        # get next li tag with its topics
-                        parentTopics, li = stack.pop()
-
-                        # li has ul's ? topic : event
-                        ul = li.find("ul")
-                        if(ul == None):  # li == event
-                            print("E", end="", flush=True)
-                            e = self.__parse_event(li, parentTopics, evnum, category, date, sourceUrl)
-
-                            self.analytics.numEvents += 1
-                            self.outputData.storeEvent(e)
-                            evnum += 1
-                            
-                        else:  # li == topic(s)
-                            print("T", end="", flush=True)
-                            topics = self.__parseTopic(li, parentTopics, date, tnum, sourceUrl)
-
-                            for t in topics:
-                                self.analytics.numTopics += 1
-                                self.outputData.storeTopic(t)
-                                tnum += 1
-                                
-                            # append subelements to stack
-                            subelements = ul.find_all("li", recursive=False)
-                            subelementsAndParentTopic = [
-                                [topics, st] for st in subelements[::-1]]
-                            stack += subelementsAndParentTopic
+                for category,eventList in event_lists.items():
+                    tnum, evnum = self.__extract_events_from_ul(eventList, category, tnum, evnum, date, sourceUrl, references)
+                    
 
             print("")
             self.analytics.dayEnd()

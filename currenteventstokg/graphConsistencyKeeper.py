@@ -286,22 +286,21 @@ DELETE {
         a coy:WikiNews;
         a coy:Event;
         rdfs:label ?l;
-        coy:hasTag ?tag;
         coy:hasMentionDate ?date;
         coy:hasRawHtml ?html;
         coy:isIdentifiedBy ?c.
+    OPTIONAL{$uri coy:hasTag ?tag.}
     OPTIONAL{$uri coy:hasWikidataEventType ?ev_type.}
     OPTIONAL{$uri coy:isOccuringDuring ?pt.}
 
     ?c a nif:Context;
         rdfs:label ?c_l;
         nif:sourceUrl ?wiki_source;
-        dcterms:source ?news_source;
-        # dont delete *_source props since they dont have to be added again, but could be used elsewhere.
         nif:isString ?c_str;
         nif:beginIndex ?c_bi;
         nif:endIndex ?c_ei;
         nif:subString ?s.
+    OPTIONAL{?c dcterms:source ?news_source.}
     
     ?s a nif:Sentence;
         nif:referenceContext ?c;
@@ -329,7 +328,30 @@ DELETE {
             uri=newssummary_uri.n3())
 
         self.__query(q)
-    
+
+
+    def delete_news_source_triples(self, uri:URIRef):
+        q = Template("""
+PREFIX coy:<https://schema.coypu.org/global#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+${subgraph}
+DELETE {
+
+    ${uri} a coy:News;
+        rdfs:label ?l.
+
+} WHERE {
+
+    ${uri} a coy:News;
+        rdfs:label ?l.
+
+}""").substitute(
+            subgraph=f"WITH <{self.subgraph}>" if self.subgraph else "", 
+            uri=uri.n3())
+
+        res = self.__query(q)
+
 
     def delete_osmelement_triples(self, uri:URIRef):
         q = Template("""

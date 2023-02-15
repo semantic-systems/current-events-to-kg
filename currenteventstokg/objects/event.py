@@ -5,15 +5,16 @@ from currenteventstokg.objects.topic import Topic
 from currenteventstokg.objects.link import Link
 from currenteventstokg.objects.sentence import Sentence
 from currenteventstokg.objects.article import Article
+from currenteventstokg.objects.reference import Reference
 
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 
 class Event():
     def __init__(self, raw: str, parentTopics: List[Topic], text: str,
                  sourceUrl: str, date: datetime.date, sentences: List[Sentence],
                  sourceLinks: List[Link], sourceText: str, eventTypes: Dict[str, str], 
-                 eventIndex: int, category:str):
+                 eventIndex: int, category:Optional[str], sourceReferences:List[Reference]):
         self.raw = raw
         self.parentTopics = parentTopics
         self.text = text
@@ -25,6 +26,7 @@ class Event():
         self.eventTypes = eventTypes
         self.eventIndex = eventIndex # n-th event of the day
         self.category = category
+        self.sourceReferences = sourceReferences
     
     def getTextWithoutSource(self):
         t = self.text[:-len(self.sourceText)]

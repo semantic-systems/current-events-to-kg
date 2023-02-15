@@ -151,6 +151,9 @@ class Analytics:
         self.numEventsWithType = Amount()
         self.numFalconQuerys = Amount()
         self.numFalconSuccessfulQuerys = Amount()
+        self.numReferences = Amount()
+        self.numReferencesNews = Amount()
+        
 
         # avg* = [sum, num, "unit"]
         self.avgWaitTimeUntilRequest = Average("sec")
