@@ -81,12 +81,8 @@ SELECT DISTINCT ?e ?l WHERE{\n"""
         if query:
             q += "\nFILTER(LANG(?l) = \"en\") .\n}"
             
-            self.sparql.setQuery(q)
-            self.sparql.setReturnFormat(JSON)
+            res = self.__queryAndConvertThreeTrys(q)
 
-            self.sleepUntilNewRequestLegal(self.minSecondsBetweenQueries)
-            
-            res = self.__queryAndConvertThreeTrysOn110()
 
             for row in res["results"]["bindings"]:
                 eid = row["e"]["value"].split("/")[-1]
@@ -116,11 +112,8 @@ SELECT DISTINCT ?wd_r ?loc WHERE{
   FILTER NOT EXISTS{ ?wd_r wdt:P1647 wd:P18. } 
 }""").substitute(e=eid)
 
-            self.sparql.setQuery(q)
-            self.sparql.setReturnFormat(JSON)
+            res = self.__queryAndConvertThreeTrys(q)
 
-            self.sleepUntilNewRequestLegal(self.minSecondsBetweenQueries)
-            res = self.__queryAndConvertThreeTrysOn110()
 
             result = {}
             for row in res["results"]["bindings"]:
@@ -147,11 +140,8 @@ SELECT DISTINCT ?wd_r ?loc WHERE{
 SELECT ?p ?o WHERE {
     <$e> ?p ?o .
 }""").substitute(e=entityURI)
-            self.sparql.setQuery(q)
-            self.sparql.setReturnFormat(JSON)
 
-            self.sleepUntilNewRequestLegal(self.minSecondsBetweenQueries)
-            json = self.__queryAndConvertThreeTrysOn110()
+            json = self.__queryAndConvertThreeTrys(q)
 
             result = Graph()
             for row in json["results"]["bindings"]:
@@ -213,11 +203,8 @@ SELECT DISTINCT ?osmrelid ?osmobj WHERE {
     OPTIONAL {<$e> wdt:P402 ?osmrelid . }
     OPTIONAL {<$e> wdt:P10689 ?osmobj. }
 }""").substitute(e=entityURI)
-            self.sparql.setQuery(q)
-            self.sparql.setReturnFormat(JSON)
-
-            self.sleepUntilNewRequestLegal(self.minSecondsBetweenQueries)
-            results = self.__queryAndConvertThreeTrysOn110()
+            
+            results = self.__queryAndConvertThreeTrys(q)
 
             osmrelidsSet, osmobjsSet = set(), set()
             for row in results["results"]["bindings"]:
@@ -236,6 +223,7 @@ SELECT DISTINCT ?osmrelid ?osmobj WHERE {
             
         return osmrelids, osmobjs
     
+
     def get_wp_article_urls(self, entitys:List[str]) -> Dict[str, str]:
         result = {}
         missing_eids = set()
@@ -253,12 +241,8 @@ SELECT DISTINCT ?a WHERE{
     ?a  schema:about wd:$e;
 	    schema:isPartOf <https://en.wikipedia.org/>.
 }""").substitute(e=eid)
-                self.sparql.setQuery(q)
-                self.sparql.setReturnFormat(JSON)
-
-                self.sleepUntilNewRequestLegal(self.minSecondsBetweenQueries)
                 
-                res = self.__queryAndConvertThreeTrysOn110()
+                res = self.__queryAndConvertThreeTrys(q)
 
                 if len(res["results"]["bindings"]) > 0:
                     for row in res["results"]["bindings"]:
@@ -272,28 +256,29 @@ SELECT DISTINCT ?a WHERE{
 
             
         return result        
-
-
     
-    def __queryAndConvertThreeTrysOn110(self):
+
+    def __queryAndConvertThreeTrys(self, q):
+        self.sparql.setQuery(q)
+        self.sparql.setReturnFormat(JSON)
+
+        self.sleepUntilNewRequestLegal(self.minSecondsBetweenQueries)
+
         for t in range(3):
             try:
                 res = self.sparql.queryAndConvert()
                 self.analytics.numWikidataQueries += 1
                 return res
-            except HTTPError as e:
-                if e.code == 429:
-                    # check when query can be reqeated (untested, never happend)
+
+            except Exception as e:
+                if isinstance(e, HTTPError) and e.code == 429:
+                    # check when query can be repeated (untested, never happend)
                     timeout = int(e.headers["Retry-After"])
                     print(f"Wikidata request limit exceeded! Waiting {timeout} sec...")
                     sleep(timeout)
                 else:
-                    raise e
-            except URLError as e:
-                if e.reason.errno != 110:
-                    raise e
-                else:
-                    print("\nwikidataService.py URLError 110 #" + str(t+1))
+                    print("\nwikidataService.py query try #" + str(t+1))
+                    print(e)
                     if t == 2:
                         raise e
         

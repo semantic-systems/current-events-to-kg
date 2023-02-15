@@ -40,7 +40,7 @@ class InputHtml(Sleeper):
                 res = f.read()
             return res
         else:
-            page = self.__requestWithThreeTrysOn110(url)
+            page = self.__requestWithThreeTrys(url)
             
             with open(filePath, mode='w', encoding="utf-8") as f:
                 f.write(page.text)
@@ -48,7 +48,7 @@ class InputHtml(Sleeper):
             return page.text
     
     
-    def __requestWithThreeTrysOn110(self, url):
+    def __requestWithThreeTrys(self, url):
         for t in range(3):
             try:
                 diff, waited = self.sleepUntilNewRequestLegal(self.cooldown)
@@ -61,11 +61,9 @@ class InputHtml(Sleeper):
                     self.analytics.numDownloads += 1
 
                 return requests.get(url)
-            except URLError as e:
-                if e.reason.errno != 110:
-                    raise e
-                else:
-                    print("\ninputHtml.py URLError 110 #" + str(t+1))
+            except Exception as e:
+                    print("\ninputHtml.py HTTP request #" + str(t+1))
+                    print(e)
                     if t == 2:
                         raise e
 
