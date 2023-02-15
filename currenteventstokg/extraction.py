@@ -914,21 +914,22 @@ class Extraction:
         
         cite_tag = li.find("cite")
 
-        # only news references
-        if "class" in cite_tag.attrs and "news" in cite_tag.attrs["class"]:
-            self.analytics.numReferencesNews += 1
+        if cite_tag:
+            # only news references
+            if "class" in cite_tag.attrs and "news" in cite_tag.attrs["class"]:
+                self.analytics.numReferencesNews += 1
 
-            a_tags = cite_tag.find_all("a")
-            ref_links = []
-            for a_tag in a_tags:
-                if "href" in a_tag.attrs \
-                    and "class" in a_tag.attrs and "external" in a_tag.attrs["class"]:
+                a_tags = cite_tag.find_all("a")
+                ref_links = []
+                for a_tag in a_tags:
+                    if "href" in a_tag.attrs \
+                        and "class" in a_tag.attrs and "external" in a_tag.attrs["class"]:
 
-                    url = a_tag.attrs["href"]
-                    anchor_text, _ = self.__getTextAndLinksRecursive(a_tag)
-                    
-                    return Reference(ref_nr, url, anchor_text)
-        
+                        url = a_tag.attrs["href"]
+                        anchor_text, _ = self.__getTextAndLinksRecursive(a_tag)
+                        
+                        return Reference(ref_nr, url, anchor_text)
+            
 
     def __extract_references_from_page(self, page:Tag) -> Dict[int,List[Reference]]:
         references = {}
