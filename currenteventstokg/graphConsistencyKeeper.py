@@ -10,6 +10,8 @@ from SPARQLWrapper import DIGEST, JSON, POST, QueryResult, SPARQLWrapper
 class GraphConsistencyKeeper:
     def __init__(self, sparql_endpoint:str, subgraph:str, sparql_endpoint_user:Optional[str], sparql_endpoint_pw:Optional[str]):
         self.subgraph = subgraph
+        self.potential_from_clause = f"FROM <{self.subgraph}>" if self.subgraph else ""
+        self.potential_with_clause = f"WITH <{self.subgraph}>" if self.subgraph else ""
 
         self.sparql = SPARQLWrapper(sparql_endpoint)
         self.sparql.setMethod(POST)
@@ -38,12 +40,11 @@ class GraphConsistencyKeeper:
         q = Template("""
 PREFIX gn: <https://www.geonames.org/ontology#>
 
-${subgraph}
-SELECT DISTINCT ?a WHERE {
+SELECT DISTINCT ?a ${subgraph} WHERE {
     ${uri} gn:wikipediaArticle ?a.
 
 }""").substitute(
-            subgraph=f"WITH <{self.subgraph}>" if self.subgraph else "", 
+            subgraph=self.potential_from_clause, 
             uri=uri.n3())
         
         res = self.__query_and_convert(q)
@@ -63,9 +64,7 @@ PREFIX coy:<https://schema.coypu.org/global#>
 PREFIX gn: <https://www.geonames.org/ontology#>
 PREFIX nif: <http://persistence.uni-leipzig.org/nlp2rdf/ontologies/nif-core#>
 
-
-${subgraph}
-SELECT DISTINCT ?a WHERE {
+SELECT DISTINCT ?a ${subgraph} WHERE {
     ${uri} a coy:NewsSummary;
         coy:isIdentifiedBy ?c.
     
@@ -73,7 +72,7 @@ SELECT DISTINCT ?a WHERE {
         nif:subString/nif:subString/gn:wikipediaArticle ?a.
 
 }""").substitute(
-            subgraph=f"WITH <{self.subgraph}>" if self.subgraph else "", 
+            subgraph=self.potential_from_clause, 
             uri=newssummary_uri.n3())
         
         res = self.__query_and_convert(q)
@@ -168,7 +167,7 @@ DELETE {
         }
     }
 }""").substitute(
-            subgraph=f"WITH <{self.subgraph}>" if self.subgraph else "", 
+            subgraph=self.potential_with_clause, 
             uri=article_uri.n3())
 
         self.__query(q)
@@ -225,7 +224,7 @@ DELETE {
     }
 
 }""").substitute(
-            subgraph=f"WITH <{self.subgraph}>" if self.subgraph else "", 
+            subgraph=self.potential_with_clause, 
             uri=topic_uri.n3())
         
         self.__query(q)
@@ -325,7 +324,7 @@ DELETE {
     }
     
 }""").substitute(
-            subgraph=f"WITH <{self.subgraph}>" if self.subgraph else "", 
+            subgraph=self.potential_with_clause, 
             uri=newssummary_uri.n3())
 
         self.__query(q)
@@ -355,7 +354,7 @@ DELETE {
     OPTIONAL{ $uri geo:asWKT ?wkt }
 
 }""").substitute(
-            subgraph=f"WITH <{self.subgraph}>" if self.subgraph else "", 
+            subgraph=self.potential_with_clause, 
             uri=uri.n3())
 
         res = self.__query(q)
@@ -366,12 +365,16 @@ DELETE {
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 
 ${subgraph}
-DELETE WHERE {
+DELETE  {
+    
+    ${uri} rdfs:label ?l.
 
+} WHERE {
+    
     ${uri} rdfs:label ?l.
 
 }""").substitute(
-            subgraph=f"WITH <{self.subgraph}>" if self.subgraph else "", 
+            subgraph=self.potential_with_clause, 
             uri=uri.n3())
 
         res = self.__query(q)
