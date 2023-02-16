@@ -974,8 +974,18 @@ class Extraction:
                 month = month2int[monthStr]
                 date = datetime.date(year, month, day)
 
+                ## get box with events of class .description
+                # "normal" usage of {{Current events|year=2005|month=01|day=7|content= 
                 description = daybox.select_one(".description")
 
+                # case of {{Current events header|2005|01|08}} usage where a table is generated...
+                if not description:
+                    table = daybox.find_next("table", attrs={"class": "vevent"})
+                    description = table.select_one(".description")
+                    if not description:
+                        raise Exception(f".description class tag not found for {idStr}")
+
+                ## try getting category tags
                 # two versions of headings are used (afaik):
                 # <p><b>Health and environment</b></p>
                 # <div class="current-events-content-heading" role="heading">Armed conflicts and attacks</div>
@@ -985,7 +995,7 @@ class Extraction:
                         and "current-events-content-heading" in tag.attrs["class"])
                 categories = description.find_all(is_category, recursive=False)
                 
-                # crate list of event lists
+                # create list of event lists
                 event_lists = {} # list of ul lists of events with category str as key
                 if categories:
                     ## format with categories from 2004
@@ -1002,7 +1012,7 @@ class Extraction:
                         if child.name == "ul":
                             event_lists[None] = child
                 
-                # extract all events
+                ## extract all events
                 tnum = 0
                 evnum = 0
                 for category,eventList in event_lists.items():
