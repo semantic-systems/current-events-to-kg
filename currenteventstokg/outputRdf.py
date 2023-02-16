@@ -509,7 +509,6 @@ class OutputRdf:
         # the news sources refrenced through [xx] down below.
         for ref in event.sourceReferences:
             source_link_uri = URIRef(ref.url)
-            print(source_link_uri)
 
             base.add((context_uri, DCTERMS.source, source_link_uri))
             base.add((source_link_uri, RDF.type, COY.News))
