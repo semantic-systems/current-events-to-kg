@@ -24,6 +24,13 @@ class GraphConsistencyKeeper:
         elif sparql_endpoint_user or sparql_endpoint_pw:
             # only one is defined
             raise Exception("Dataset SPAQRL endpoint credentials incomplete.")
+        
+        self.already_deleted_article_and_location_triples = set()
+        self.already_deleted_topic_triples = set()
+        self.already_deleted_newssummary_triples = set()
+        self.already_deleted_news_source_triples = set()
+        self.already_deleted_osmelement_triples = set()
+        self.already_deleted_label_triples = set()
     
 
     def __query(self, q:str):
@@ -86,7 +93,12 @@ SELECT DISTINCT ?a ${subgraph} WHERE {
         return article_uris
 
 
+
     def delete_article_and_location_triples(self, article_uri:URIRef):
+        # skip if already deleted
+        if article_uri in self.already_deleted_article_and_location_triples:
+            return
+
         q = Template("""
 PREFIX coy:<https://schema.coypu.org/global#>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
@@ -171,9 +183,18 @@ DELETE {
             uri=article_uri.n3())
 
         self.__query(q)
+
+        # track as already deleted
+        self.already_deleted_article_and_location_triples.add(article_uri)
+
+
     
 
     def delete_topic_triples(self, topic_uri:URIRef):
+        # skip if already deleted
+        if topic_uri in self.already_deleted_topic_triples:
+            return
+
         ## if its an ArticleTopic:
         # query article of topic before deleting
         article_uris = self.__query_associated_articles(topic_uri)
@@ -229,8 +250,16 @@ DELETE {
         
         self.__query(q)
 
+        # track as already deleted
+        self.already_deleted_topic_triples.add(topic_uri)
+
     
+
     def delete_newssummary_triples(self, newssummary_uri:URIRef):
+        # skip if already deleted
+        if newssummary_uri in self.already_deleted_newssummary_triples:
+            return
+        
         q = Template("""
 PREFIX coy:<https://schema.coypu.org/global#>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
@@ -328,8 +357,16 @@ DELETE {
 
         self.__query(q)
 
+        # track as already deleted
+        self.already_deleted_newssummary_triples.add(newssummary_uri)
+
+
 
     def delete_news_source_triples(self, uri:URIRef):
+        # skip if already deleted
+        if uri in self.already_deleted_news_source_triples:
+            return
+
         q = Template("""
 PREFIX coy:<https://schema.coypu.org/global#>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
@@ -351,8 +388,16 @@ DELETE {
 
         res = self.__query(q)
 
+        # track as already deleted
+        self.already_deleted_news_source_triples.add(uri)
+
+
 
     def delete_osmelement_triples(self, uri:URIRef):
+        # skip if already deleted
+        if uri in self.already_deleted_osmelement_triples:
+            return
+        
         q = Template("""
 PREFIX coy:<https://schema.coypu.org/global#>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
@@ -381,8 +426,16 @@ DELETE {
 
         res = self.__query(q)
 
+        # track as already deleted
+        self.already_deleted_osmelement_triples.add(uri)
+
+
     
     def delete_label_triples(self, uri:URIRef):
+        # skip if already deleted
+        if uri in self.already_deleted_label_triples:
+            return
+
         q = Template("""
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 
@@ -400,3 +453,6 @@ DELETE  {
             uri=uri.n3())
 
         res = self.__query(q)
+
+        # track as already deleted
+        self.already_deleted_label_triples.add(uri)
