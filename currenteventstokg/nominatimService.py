@@ -8,6 +8,8 @@ from OSMPythonTools import logger
 from OSMPythonTools.cachingStrategy import JSON, CachingStrategy
 from OSMPythonTools.nominatim import Nominatim
 
+from typing import Dict
+
 
 class NominatimService:
 
@@ -29,11 +31,22 @@ class NominatimService:
         logger.setLevel(ERROR)
 
     
+    def __query(self, q, kwargs:Dict):
+        last_exception = None
+        for i in range(1,4):
+            try:
+                res = self.n.query(q, **kwargs)
+                self.analytics.numNominatimQueries += 1
+                return res
+            except Exception as e:
+                last_exception = e
+                print(f"nominatimService.py query try #{i} failed:", e)
+        raise last_exception
+
+    
     def query(self, q):
-        self.analytics.numNominatimQueries += 1
-        return self.n.query(q, params={"limit":1}, wkt=True)
+        return self.__query(q, {"params": {"limit":1}, "wkt":True})
 
     def lookup(self, q):
-        self.analytics.numNominatimQueries += 1
-        return self.n.query(q, params={"limit":1}, wkt=True, lookup=True)
+        return self.__query(q, {"params": {"limit":1}, "wkt":True, "lookup":True})
         
