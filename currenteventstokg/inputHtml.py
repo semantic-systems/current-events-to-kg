@@ -6,6 +6,8 @@ from pathlib import Path
 import re
 from typing import Optional
 from urllib.error import URLError
+import zstd
+from time import time_ns
 
 import requests
 
@@ -47,6 +49,63 @@ class InputHtml(Sleeper):
             
             return page.text
     
+    def __fetch_page_zstd(self, file_path:Path, url:str, force:bool=False):
+        file_path_zstd = Path(str(file_path) + ".zst")
+
+        def compress_and_store(text:str, path:Path):
+            t = time_ns()
+            text_comp = zstd.compress(text.encode("utf-8"))
+            t = time_ns()-t
+
+            with open(path, mode='wb') as f:
+                f.write(text_comp)
+        
+        # open file
+        if os.path.exists(file_path_zstd) and not force:
+            if self.analytics:
+                t = time_ns()
+
+            with open(file_path_zstd, mode='rb') as f:
+                res_comp = f.read()
+            res = zstd.decompress(res_comp)
+            res = res.decode("utf-8")
+
+            if self.analytics:
+                t = time_ns() - t
+                self.analytics.numOpenings += 1
+                self.analytics.numOpeningsZstd += 1
+                self.analytics.avgOpeningTimeZstd.add_value(float(t))
+
+            return res
+        
+        elif os.path.exists(file_path) and not force:
+            if self.analytics:
+                t = time_ns()
+            
+            with open(file_path, mode='r', encoding="utf-8") as f:
+                res = f.read()
+            
+            if self.analytics:
+                t = time_ns() - t
+                self.analytics.avgOpeningTimeUncompressend.add_value(float(t))
+            
+            # store compressed and delete uncompressed
+            compress_and_store(res, file_path_zstd)
+            os.remove(file_path)
+
+            if self.analytics:
+                self.analytics.numOpenings += 1
+
+            return res
+
+        else:
+            # get and store compressed
+            page = self.__requestWithThreeTrys(url)
+            
+            compress_and_store(page.text, file_path_zstd)
+            return page.text        
+
+    
     
     def __requestWithThreeTrys(self, url):
         for t in range(3):
@@ -72,7 +131,7 @@ class InputHtml(Sleeper):
         urlBase = "https://en.wikipedia.org/wiki/Portal:Current_events/" # eg April_2022
         filePath = self.cacheCurrentEventsDir / (suffix + ".html")
         sourceUrl = urlBase + suffix
-        return sourceUrl, self.__fetchPage(filePath, sourceUrl, self.ignore_current_events_page_cache)
+        return sourceUrl, self.__fetch_page_zstd(filePath, sourceUrl, self.ignore_current_events_page_cache)
     
 
     def fetchWikiPage(self, url):
@@ -80,10 +139,10 @@ class InputHtml(Sleeper):
         urlSuffix = re.split("/", url)[4]
         filePath = self.cacheWikiDir / (urlSuffix + ".html")
         
-        return self.__fetchPage(filePath, urlBase + urlSuffix, self.ignore_wiki_cache)
+        return self.__fetch_page_zstd(filePath, urlBase + urlSuffix, self.ignore_wiki_cache)
 
     def fetchLocationTemplatesPage(self):
         url = "https://en.wikipedia.org/wiki/Wikipedia:List_of_infoboxes/Place"
         filePath = self.cache_infobox_templates_dir / ("places.html")
         
-        return self.__fetchPage(filePath, url, self.ignore_wiki_cache)
+        return self.__fetch_page_zstd(filePath, url, self.ignore_wiki_cache)

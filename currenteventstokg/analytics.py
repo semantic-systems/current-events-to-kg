@@ -118,6 +118,7 @@ class Analytics:
 
         # num*
         self.numOpenings = Amount()
+        self.numOpeningsZstd = Amount()
         self.numDownloads = Amount()
         self.numWikidataQueries = Amount()
         self.numNominatimQueries = Amount()
@@ -160,6 +161,8 @@ class Analytics:
         self.avgTimeBetweenRequest = Average("sec")
         self.avgDayTime = Average("sec")
         self.avgMonthTime = Average("min")
+        self.avgOpeningTimeUncompressend = Average("ns")
+        self.avgOpeningTimeZstd = Average("ns")
 
         # dict*
         self.dictTopicInfoboxLabels = ValueDict()
