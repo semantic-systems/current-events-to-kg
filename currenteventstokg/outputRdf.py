@@ -8,8 +8,7 @@ from typing import overload, Tuple, Optional, List
 from urllib.parse import quote_plus
 import datetime
 
-from rdflib import (FOAF, OWL, RDF, RDFS, XSD, BNode, Graph, Literal,
-                    Namespace, URIRef)
+from rdflib import FOAF, OWL, RDF, RDFS, XSD, BNode, Graph, Literal, URIRef
 
 from .objects.article import Article
 from .objects.event import Event
@@ -18,28 +17,10 @@ from .objects.topic import Topic
 from .objects.osmElement import OSMElement
 from .graphConsistencyKeeper import GraphConsistencyKeeper
 
-# data under https://data.coypu.org/ENTITY-TYPE/DATA-SOURCE/ID
-events_ns = Namespace("https://data.coypu.org/newssummary/wikipedia-current-events/")
-article_topics_ns = Namespace("https://data.coypu.org/articletopic/wikipedia-current-events/")
-text_topics_ns = Namespace("https://data.coypu.org/texttopic/wikipedia-current-events/")
-contexts_ns = Namespace("https://data.coypu.org/context/wikipedia-current-events/")
-sentences_ns = Namespace("https://data.coypu.org/sentence/wikipedia-current-events/")
-phrases_ns = Namespace("https://data.coypu.org/phrase/wikipedia-current-events/")
-locations_ns = Namespace("https://data.coypu.org/location/wikipedia-current-events/")
-osm_element_ns = Namespace("https://data.coypu.org/osmelement/wikipedia-current-events/")
-point_ns = Namespace("https://data.coypu.org/point/wikipedia-current-events/")
-timespan_ns = Namespace("https://data.coypu.org/timespan/wikipedia-current-events/")
-wikipedia_article_ns = Namespace("https://data.coypu.org/wikipediaarticle/wikipedia-current-events/")
-
-COY = Namespace("https://schema.coypu.org/global#")
-NIF = Namespace("http://persistence.uni-leipzig.org/nlp2rdf/ontologies/nif-core#")
-SEM = Namespace("http://semanticweb.cs.vu.nl/2009/11/sem/")
-WGS = Namespace("http://www.w3.org/2003/01/geo/wgs84_pos#")
-GEO = Namespace("http://www.opengis.net/ont/geosparql#")
-WD = Namespace("http://www.wikidata.org/entity/")
-GN = Namespace("https://www.geonames.org/ontology#")
-SCHEMA = Namespace("https://schema.org/")
-DCTERMS = Namespace("http://purl.org/dc/terms/")
+from . import (COY, NIF, SEM, WGS, GEO, WD, GN, SCHEMA, DCTERMS,
+    events_ns, article_topics_ns, text_topics_ns, contexts_ns, 
+    sentences_ns, phrases_ns, locations_ns, osm_element_ns, point_ns, 
+    timespan_ns, wikipedia_article_ns)
 
 
 class OutputRdf:
@@ -391,14 +372,14 @@ class OutputRdf:
             # add one-hop graph around wikidata entity to ohg graph
             ohg += article.wikidata_one_hop_graph
         
-        # add labels of classes which entity is instance of (classes are URIs of wd:entity in 1hop graph)
-        for entityId, label in article.classes_with_labels.items():
-            wd_class_entity_uri = URIRef(WD[entityId])
-            ohg.add((wd_class_entity_uri, RDFS.label, Literal(str(label), datatype=XSD.string)))
+            # add labels of classes which wikidata entity is instance of (classes are URIs of wd:entity in 1hop graph)
+            for entityId, label in article.classes_with_labels.items():
+                wd_class_entity_uri = URIRef(WD[entityId])
+                ohg.add((wd_class_entity_uri, RDFS.label, Literal(str(label), datatype=XSD.string)))
 
-            # delete old triple in dataset endpoint
-            if self.args.delete_old_entities:
-                self.gck.delete_label_triples(wd_class_entity_uri)
+                # delete old triple in dataset endpoint
+                if self.args.delete_old_entities:
+                    self.gck.delete_label_triples(wd_class_entity_uri)
         
         # add doc infos
         if article.date_published:
