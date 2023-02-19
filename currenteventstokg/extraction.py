@@ -218,7 +218,15 @@ class Extraction:
             degrees, minutes, seconds, direction = res
         else:
             raise Exception()
-
+        
+        # convert to point decimal
+        if isinstance(degrees, str):
+            degrees = degrees.replace(",",".")
+        if isinstance(minutes, str):
+            minutes = minutes.replace(",",".")
+        if isinstance(seconds, str):
+            seconds = seconds.replace(",",".")
+        
         return (float(degrees) + float(minutes)/60 + float(seconds)/(3600)) * (-1 if direction in ['W', 'S'] else 1)
     
     
