@@ -269,7 +269,13 @@ class Extraction:
             label = "Location"
         
         # find location label tag
-        th = ib.tbody.find("th", string=label, attrs={"class": "infobox-label"})
+        th = None
+
+        tbody = ib.tbody
+        # check if infobox table isnt empty (like e.g. https://en.wikipedia.org/wiki/Portovelo)
+        if tbody:
+            th = tbody.find("th", string=label, attrs={"class": "infobox-label"})
+        
         if not th:
             return rows, coords
         
@@ -710,8 +716,6 @@ class Extraction:
 
         if len(links) == 0:
             # topic row without link (e.g. 14.1.2022 #4)
-            print("\n", text, num_topics, text)
-
             yield Topic(topic_row, text, None, [], date, num_topics, sourceUrl)
 
         else:
