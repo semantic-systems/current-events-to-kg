@@ -8,7 +8,7 @@ import logging
 import re
 from os import makedirs
 from string import Template
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union, Generator
 from functools import lru_cache
 
 from bs4 import BeautifulSoup, NavigableString, Tag
@@ -693,44 +693,83 @@ class Extraction:
         return Article(graphUrl, locFlag, coord, str(ib), ibRows, ib_coordinates, str(articleGraphTag.string), templates, 
                 wiki_wkts, wikidataEntityURI, wd_one_hop_g, parent_locations_and_relation, 
                 entity_label_dict, microformats, datePublished, dateModified, name, headline)
-    
 
-    def __parseTopic(self, t, parentTopics, date:datetime.date, num_topics:int, sourceUrl:str) -> list[Topic]:
-        if(isinstance(t, NavigableString)):
-            # when parent is no link, but initial Topic without Link
-            return [Topic(t, t, None, [], date, num_topics, sourceUrl)]
+        
+    def __parseTopic(self, t, parentTopics, date:datetime.date, num_topics:int, sourceUrl:str):
+        # create tag with content until ul
+        soup = BeautifulSoup("<li></li>", self.bs_parser)
+        topic_row = soup.find("li")
+        for c in t.children:
+            if c.name == "ul":
+                break
+            topic_row.append(copy.copy(c))
+        
+        text, links = self.__getTextAndLinksRecursive(topic_row)
+        text = text.strip()
+        text = text.strip(":")
+
+        if len(links) == 0:
+            # topic row without link (e.g. 14.1.2022 #4)
+            print("\n", text, num_topics, text)
+
+            yield Topic(topic_row, text, None, [], date, num_topics, sourceUrl)
+
         else:
-            aList = t.find_all("a", recursive=False)
-            # add italic topics
-            iList = t.find_all("i", recursive=False)
-            for i in iList:
-                aList.append(i.find("a", recursive=False))
+            # get topic labels
+            link2topic_label = {}
 
-            if len(aList) == 0:
-                # rare case when non inital topics have no link (14.1.2022 #4)
-                text, _ = self.__getTextAndLinksRecursive(t.contents[0])
-                text = text.strip("\n ")
-                return [Topic(text, text, None, [], date, num_topics, sourceUrl)]
-            else:
-                topics = []
-                for a in aList:
-                    text, links = self.__getTextAndLinksRecursive(a)
-                    href = a["href"]
+            if len(links) == 1:
+                link2topic_label[links[0]] = text
 
-                    # add url prefix to urls from wikipedia links
-                    if(href[0] == "/"):
-                        href = "https://en.wikipedia.org" + href
+            elif len(links) > 1:
+                topic_label_seperators = []
+
+                # add commas outside of links
+                for match in re.finditer(r',', text):
+                    for link in links:
+                        if match.start() >= link.startPos and match.end() <= link.endPos:
+                            continue
+                        else:
+                            topic_label_seperators.append((match.start(), match.end()))
                     
-                    # article == None if href is redlink like on 27.1.2022
-                    article = self.__getArticleFromUrlIfArticle(href, topicFlag=True, article_recursions_left=self.article_recursions)
-                    
-                    # index of the topic
-                    tnum = num_topics + len(topics)
+                sorted_seperators = sorted(topic_label_seperators, key=lambda x: x[0])
 
-                    t = Topic(a, text, article, parentTopics, date, tnum, sourceUrl)
-                    topics.append(t)
+                # assign topic labels
+                if not sorted_seperators:
+                    for link in links:
+                        link2topic_label[link] = text
+                else:
+                    sorted_links = sorted(links, key=lambda x: x.startPos)
+                    current_seperator_index = 0
+                    label_start = 0
+                    label_end = sorted_seperators[current_seperator_index][0]
 
-            return topics
+                    for link in sorted_links:
+                        # move to next label if link is further forward
+                        if link.endPos >= label_end:
+                            if current_seperator_index+1 < len(sorted_seperators):
+                                label_start = sorted_seperators[current_seperator_index][0]
+                                label_end = sorted_seperators[current_seperator_index+1][0]
+                                current_seperator_index += 1
+                            else:
+                                label_start = sorted_seperators[current_seperator_index][0]
+                                label_end = len(text)
+                        
+                        link2topic_label[link] = text[label_start:label_end]
+                
+            # create topics
+            for i, link in enumerate(links):
+                # NOTE: article == None if href is redlink like on 27.1.2022
+                article = self.__getArticleFromUrlIfArticle(
+                    link.href, topicFlag=True, 
+                    article_recursions_left=self.article_recursions)
+                
+                label = link2topic_label[link]
+
+                # index of the topic
+                tnum = num_topics + i
+
+                yield Topic(topic_row, label, article, parentTopics, date, tnum, sourceUrl)
     
 
     def __extract_reference_numbers_from_event(self, x:Tag) -> List[int]:
