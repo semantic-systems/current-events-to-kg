@@ -2,10 +2,13 @@
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from string import Template
-from typing import List, Optional
+from typing import Generator, List, Optional
 
-from rdflib import URIRef
+from rdflib import RDF, Graph, URIRef
 from SPARQLWrapper import DIGEST, JSON, POST, QueryResult, SPARQLWrapper
+
+from . import COY, GN
+
 
 class GraphConsistencyKeeper:
     def __init__(self, sparql_endpoint:str, subgraph:str, sparql_endpoint_user:Optional[str], sparql_endpoint_pw:Optional[str]):
@@ -456,3 +459,93 @@ DELETE  {
 
         # track as already deleted
         self.already_deleted_label_triples.add(uri)
+
+        
+
+    def query_wd_class_uris_which_have_label(self, g:Graph) -> Generator:
+        q = """
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+
+SELECT DISTINCT ?c WHERE {
+    ?wd_e wdt:P31 ?c.
+    ?c rdfs:label ?l.
+}"""
+
+        qres = g.query(q)
+        for row in qres:
+            yield URIRef(row.c)
+
+
+
+    def delete_old_triples_in_endpoint(self, new_graph:Graph):
+        article_uris = new_graph.subjects(RDF.type, GN.WikipediaArticle, unique=True)
+        for uri in article_uris:
+            self.delete_article_and_location_triples(uri)
+    
+        newssummary_uris = new_graph.subjects(RDF.type, COY.NewsSummary, unique=True)
+        for uri in newssummary_uris:
+            self.delete_newssummary_triples(uri)
+        
+        topic_uris = new_graph.subjects(RDF.type, COY.TextTopic, unique=True)
+        for uri in topic_uris:
+            self.delete_topic_triples(uri)
+    
+        osmelement_uris = new_graph.subjects(RDF.type, COY.OsmElement, unique=True)
+        for uri in osmelement_uris:
+            self.delete_osmelement_triples(uri)
+    
+        wd_class_uris = self.query_wd_class_uris_which_have_label(new_graph)
+        for uri in wd_class_uris:
+            self.delete_label_triples(uri)
+    
+
+if __name__ == "__main__":
+    import argparse
+    import os
+    from pathlib import Path
+
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+    parser.add_argument('-de', '--dataset_endpoint',
+        action='store', 
+        help="Sets the sparql endpoint URL of the dataset from which data will be removed if the parent entities also exist in the graph file.",
+        required=True)
+    
+    parser.add_argument('-des', '--dataset_endpoint_subgraph',
+        action='store', 
+        help="The subgraph used for the dataset.")
+    
+    parser.add_argument('-deu', '--dataset_endpoint_username',
+        action='store', 
+        help="The username used for the dataset sparql endpoint.")
+    
+    parser.add_argument('-dep', '--dataset_endpoint_pw',
+        action='store', 
+        help="The password used for the dataset sparql endpoint.")
+    
+    parser.add_argument('-i', '--input',
+        action='store', 
+        help="The path of the base graph module file.",
+        required=True)
+    
+    args = parser.parse_args()
+    
+    gck = GraphConsistencyKeeper(
+        args.dataset_endpoint, 
+        args.dataset_endpoint_subgraph, 
+        args.dataset_endpoint_username, 
+        args.dataset_endpoint_pw
+    )
+
+    # load all graph modules
+    graph_new = Graph()
+    base_path, base_filename = os.path.split(os.path.abspath(args.input))
+    for graph_module_name in ["base", "raw", "osm", "ohg"]:
+        filename = base_filename.replace("base", graph_module_name)
+        graph_new.parse(Path(base_path) / filename)
+
+    # delete old versions extracted data from the endpoint, where a new version exists in the file
+    gck.delete_old_triples_in_endpoint(graph_new)
+
+
