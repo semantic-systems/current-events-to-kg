@@ -8,7 +8,7 @@ from os import makedirs
 from os.path import abspath, split, exists
 from pathlib import Path
 from pprint import pprint
-
+from typing import List
 from rdflib import Graph
 
 from .analytics import Analytics
@@ -22,12 +22,19 @@ from .falcon2Service import Falcon2Service
 from .placeTemplatesExtractor import PlacesTemplatesExtractor
 from .etc import months
 
-def print_unparsed_months(unparsed_months):
-    # print unparsed months
-    if len(unparsed_months) > 0:
+def print_months(months:List[str]):
+    for m in months:
+        print(m)
+
+def print_unparsed_months(months:List[str]):
+    if months:
         print("These months were skipped due to Exceptions:")
-        for m in unparsed_months:
-            print(m)
+        print_months(months)
+
+def print_missing_analytics_months(months:List[str]):
+    if months:
+        print("Analytics of these months are NOT included:")
+        print_months(months)
 
 if __name__ == '__main__':
     __progName__ = "current-events-to-kg"
@@ -245,6 +252,7 @@ if __name__ == '__main__':
     monthGraphs["ohg"] = None
     
     unparsed_months = []
+    missing_analytics = []
 
     while(year*100+month <= endYear*100+endMonth):
         
@@ -279,8 +287,6 @@ if __name__ == '__main__':
             sourceUrl, page = i.fetchCurrentEventsPage(month_year)
             
             # parse if graphs do not exist
-            
-
             if not o.exists(file_prefix) or args.force_parse:
                 parsing_successful = False
                 try:
@@ -312,6 +318,7 @@ if __name__ == '__main__':
                 else:
                     # remember month
                     unparsed_months.append(month_year)
+                    missing_analytics.append(month_year)
 
                 # clear graphs for next month
                 o.reset()
@@ -319,13 +326,17 @@ if __name__ == '__main__':
             else: # == month exists already
 
                 # load analytics for combining
-                a.load(file_prefix)
+                try:
+                    a.load(file_prefix)
+                except Exception as e:
+                    print(f"Loading analytics from {file_prefix} failed:", e)
+                    missing_analytics.append(month_year)
 
+            if month_year not in missing_analytics:
+                a.printAnalytics(title=file_prefix + " Analytics")
 
-            a.printAnalytics(title=file_prefix + " Analytics")
-
-            # add to combined analytics
-            combined += a
+                # add to combined analytics
+                combined += a
 
             # reset analytics for next month
             a.reset()
@@ -342,9 +353,12 @@ if __name__ == '__main__':
         o.save("dataset")
     
     # show combined analytics for all month
+    print_missing_analytics_months(missing_analytics)
     combined.printAnalytics(title="Combined Analytics")
     
-    print_unparsed_months(unparsed_months)
+    if unparsed_months:
+        print("These months were skipped due to Exceptions:")
+        print_months(unparsed_months)
     
 
 
