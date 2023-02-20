@@ -163,6 +163,8 @@ class Analytics:
         self.avgMonthTime = Average("min")
         self.avgOpeningTimeUncompressend = Average("ns")
         self.avgOpeningTimeZstd = Average("ns")
+        self.avgArticleExtractionTime = Average("ms")
+        
 
         # dict*
         self.dictTopicInfoboxLabels = ValueDict()

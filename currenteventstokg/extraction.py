@@ -6,6 +6,7 @@ import datetime
 import json
 import logging
 import re
+from time import time_ns
 from os import makedirs
 from string import Template
 from typing import Dict, List, Optional, Tuple, Union, Generator
@@ -574,6 +575,7 @@ class Extraction:
     # !!! check article_recursions_left > 0 or set it to a known value BEFORE calling this function 
     @lru_cache(maxsize=3000)
     def __getArticleFromUrlIfArticle(self, url:str, topicFlag:bool=False, article_recursions_left:int=0) -> Optional[Article]:
+        t = time_ns()
         # return none if url is not an article
         if not self.__testIfUrlIsArticle(url):
             return None
@@ -703,6 +705,9 @@ class Extraction:
             self.analytics.numArticlesWithWkt += 1
         
         self.analytics.numArticles += 1
+
+        td = (time_ns() - t) / 10**6
+        self.analytics.avgArticleExtractionTime.add_value(float(td))
 
         return Article(graphUrl, locFlag, coord, str(ib), ibRows, ib_coordinates, str(articleGraphTag.string), templates, 
                 wiki_wkts, wikidataEntityURI, wd_one_hop_g, parent_locations_and_relation, 
@@ -1053,7 +1058,8 @@ class Extraction:
                     for i in categories:
                         category, _ = self.__getTextAndLinksRecursive(i)
                         eventList = i.find_next_sibling("ul")
-                        event_lists[category] = eventList
+                        if eventList: # in case of empty category blocks...
+                            event_lists[category] = eventList
                 else:
                     ## format where no categories are used prior to 2004
 
