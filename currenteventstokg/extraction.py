@@ -993,18 +993,19 @@ class Extraction:
         reflist = page.select_one(".reflist")
         if reflist:
             ol = reflist.select_one(".references")
-            assert ol.name == "ol"
+            if ol: # handle reference section without references...
+                assert ol.name == "ol"
 
-            for li in ol.children:
-                if li.name == "li" and "id" in li.attrs:
-                    li_id = str(li.attrs["id"])
+                for li in ol.children:
+                    if li.name == "li" and "id" in li.attrs:
+                        li_id = str(li.attrs["id"])
 
-                    if li_id.startswith("cite_note-"):
-                        ref = self.__extract_reference(li)
-                        
-                        if ref:
-                            assert ref.nr not in references
-                            references[ref.nr] = ref
+                        if li_id.startswith("cite_note-"):
+                            ref = self.__extract_reference(li)
+                            
+                            if ref:
+                                assert ref.nr not in references
+                                references[ref.nr] = ref
                 
         return references
 
