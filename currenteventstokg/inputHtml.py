@@ -2,14 +2,14 @@
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 import os.path
-from pathlib import Path
 import re
+from pathlib import Path
+from time import time_ns
 from typing import Optional
 from urllib.error import URLError
-import zstd
-from time import time_ns
 
 import requests
+from zstandard import ZstdCompressor, ZstdDecompressor
 
 from .analytics import Analytics
 from .sleeper import Sleeper
@@ -32,79 +32,78 @@ class InputHtml(Sleeper):
 
         self.cache_infobox_templates_dir = cache_dir / "infobox_templates/"
         os.makedirs(self.cache_infobox_templates_dir, exist_ok=True)
+
+        self.compressor = ZstdCompressor(threads=-1)
+        self.decompressor = ZstdDecompressor()
     
 
-    def __fetchPage(self, filePath, url, force=False):
-        if(os.path.exists(filePath) and not force):  
-            if self.analytics:
-                self.analytics.numOpenings += 1
-            with open(filePath, mode='r', encoding="utf-8") as f:
-                res = f.read()
-            return res
-        else:
-            page = self.__requestWithThreeTrys(url)
-            
-            with open(filePath, mode='w', encoding="utf-8") as f:
-                f.write(page.text)
-            
-            return page.text
-    
     def __fetch_page_zstd(self, file_path:Path, url:str, force:bool=False):
         file_path_zstd = Path(str(file_path) + ".zst")
-
-        def compress_and_store(text:str, path:Path):
-            t = time_ns()
-            text_comp = zstd.compress(text.encode("utf-8"))
-            t = time_ns()-t
-
-            with open(path, mode='wb') as f:
-                f.write(text_comp)
         
-        # open file
         if os.path.exists(file_path_zstd) and not force:
-            if self.analytics:
-                t = time_ns()
-
-            with open(file_path_zstd, mode='rb') as f:
-                res_comp = f.read()
-            res = zstd.decompress(res_comp)
-            res = res.decode("utf-8")
-
-            if self.analytics:
-                t = time_ns() - t
-                self.analytics.numOpenings += 1
-                self.analytics.numOpeningsZstd += 1
-                self.analytics.avgOpeningTimeZstd.add_value(float(t))
-
+            # open compressed file
+            res = self.__load_and_decompress_page(file_path_zstd)
             return res
         
         elif os.path.exists(file_path) and not force:
-            if self.analytics:
-                t = time_ns()
-            
-            with open(file_path, mode='r', encoding="utf-8") as f:
-                res = f.read()
-            
-            if self.analytics:
-                t = time_ns() - t
-                self.analytics.avgOpeningTimeUncompressend.add_value(float(t))
-            
-            # store compressed and delete uncompressed
-            compress_and_store(res, file_path_zstd)
-            os.remove(file_path)
-
-            if self.analytics:
-                self.analytics.numOpenings += 1
-
+            # open normal file extracted with older versions
+            res = self.__load_page(file_path, file_path_zstd)
             return res
 
         else:
             # get and store compressed
             page = self.__requestWithThreeTrys(url)
-            
-            compress_and_store(page.text, file_path_zstd)
-            return page.text        
+            self.__compress_and_store_page(page.text, file_path_zstd)
+            return page.text  
+    
+    
+    def __compress_and_store_page(self, text:str, path:Path):
+        t = time_ns()
+        text_comp = self.compressor.compress(text.encode("utf-8"))
+        t = time_ns() - t
 
+        with open(path, mode='wb') as f:
+            f.write(text_comp)
+    
+
+    def __load_and_decompress_page(self, path:Path) -> str:
+        if self.analytics:
+            t = time_ns()
+
+        with open(path, mode='rb') as f:
+            res_comp = f.read()
+        
+        res = self.decompressor.decompress(res_comp)
+        res = res.decode("utf-8")
+
+        if self.analytics:
+            t = time_ns() - t
+            self.analytics.numOpenings += 1
+            self.analytics.numOpeningsZstd += 1
+            self.analytics.avgOpeningTimeZstd.add_value(float(t))
+        
+        return res
+    
+
+    def __load_page(self, path:Path, path_zstd:Path) -> str:
+        if self.analytics:
+            t = time_ns()
+        
+        with open(path, mode='r', encoding="utf-8") as f:
+            res = f.read()
+        
+        if self.analytics:
+            t = time_ns() - t
+            self.analytics.avgOpeningTimeUncompressend.add_value(float(t))
+        
+        # store compressed and delete uncompressed
+        compress_and_store(res, path_zstd)
+        os.remove(path)
+
+        if self.analytics:
+            self.analytics.numOpenings += 1
+        
+        return res
     
     
     def __requestWithThreeTrys(self, url):
