@@ -6,29 +6,30 @@ import datetime
 import json
 import logging
 import re
-from time import time_ns
 from os import makedirs
+from pickle import dump
 from string import Template
-from typing import Dict, List, Optional, Tuple, Union, Generator
-from functools import lru_cache
+from time import time_ns
+from typing import Dict, Generator, List, Optional, Tuple, Union
 
 from bs4 import BeautifulSoup, NavigableString, Tag
 from rdflib import Graph, URIRef
 
 from .analytics import Analytics
 from .dateTimeParser import DateTimeParser
-from .placeTemplatesExtractor import PlacesTemplatesExtractor
 from .etc import month2int
 from .falcon2Service import Falcon2Service
+from .lruCacheCompressed import lru_cache as lru_cache_compressed
 from .nominatimService import NominatimService
 from .objects.article import Article
+from .objects.event import Event
 from .objects.infoboxRow import *
 from .objects.link import Link
-from .objects.event import Event
 from .objects.osmElement import OSMElement
+from .objects.reference import Reference
 from .objects.sentence import Sentence
 from .objects.topic import Topic
-from .objects.reference import Reference
+from .placeTemplatesExtractor import PlacesTemplatesExtractor
 from .wikidataService import WikidataService
 
 
@@ -573,7 +574,7 @@ class Extraction:
 
 
     # !!! check article_recursions_left > 0 or set it to a known value BEFORE calling this function 
-    @lru_cache(maxsize=3000)
+    @lru_cache_compressed(maxsize=10000, compressed=True)
     def __getArticleFromUrlIfArticle(self, url:str, topicFlag:bool=False, article_recursions_left:int=0) -> Optional[Article]:
         t = time_ns()
         # return none if url is not an article
@@ -1083,6 +1084,6 @@ class Extraction:
         hits, misses, maxsize, currsize = self.__getArticleFromUrlIfArticle.cache_info()
         print("Article cache info: hits=", hits, "misses=", misses, "maxsize=", maxsize, "currsize=", currsize)
         self.analytics.report_cache_stats(hits, misses, currsize)
-
+        
         return
 
