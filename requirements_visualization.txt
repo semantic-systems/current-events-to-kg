@@ -1,0 +1,11 @@
+geopandas==0.11.1
+getkey==0.6.5
+imageio==2.18.0
+matplotlib==3.6.2
+networkx==2.8.6
+pandas==1.5.3
+python_igraph==0.10.4
+pyvis==0.2.1
+Shapely==1.8.2
+tqdm==4.64.0
+wordcloud==1.8.2.2
