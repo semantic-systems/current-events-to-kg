@@ -138,7 +138,7 @@ class OutputRdf:
     def __addCoordinates(self, graph:Graph, parentUri:URIRef, coordinates: list[float]):
         # add coords via wgs:Point
         puri = self.__get_point_uri(coordinates)
-        graph.add((parentUri, COY.hasLocation, puri))
+        graph.add((parentUri, GEO.hasGeometry, puri))
         graph.add((puri, RDF.type, WGS.Point))
 
         graph.add((puri, RDFS.label, Literal(f"{coordinates[0]},{coordinates[1]}", datatype=XSD.string)))
