@@ -944,7 +944,7 @@ class Extraction:
                 
             else:  # li == topic(s)
                 print("T", end="", flush=True)
-                topics = self.__parseTopic(li, parentTopics, date, tnum, sourceUrl)
+                topics = list(self.__parseTopic(li, parentTopics, date, tnum, sourceUrl))
 
                 for t in topics:
                     self.analytics.numTopics += 1

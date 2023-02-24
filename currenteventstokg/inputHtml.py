@@ -97,7 +97,7 @@ class InputHtml(Sleeper):
             self.analytics.avgOpeningTimeUncompressend.add_value(float(t))
         
         # store compressed and delete uncompressed
-        compress_and_store(res, path_zstd)
+        self.__compress_and_store_page(res, path_zstd)
         os.remove(path)
 
         if self.analytics:
