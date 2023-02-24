@@ -69,21 +69,20 @@ class Extraction:
         self.timeParseErrorLogger = timeParseErrorLogger
         self.dateParseErrorLogger = dateParseErrorLogger
 
-    def __getTextAndLinksRecursive(self, x, startIndex=0) -> Tuple[str, list[Link]]:
-        s = ""
-        links = []
-        curIndex = startIndex
 
+    def __getTextAndLinksRecursive(self, x, startIndex=0) -> Tuple[str, list[Link]]:
         if(isinstance(x, NavigableString)):
-            s += x.get_text()
-            curIndex += len(x)
+            text = x.get_text()
+            return text, []
         elif(isinstance(x, Tag)):
-            childrenText, childrenLinks, childrenTextLength = "",[], 0
+            links = []
+            childrenText = ""
+            nextChildStartIndex = startIndex
             for c in x.children:
-                childText, childLinks = self.__getTextAndLinksRecursive(c, curIndex)
+                childText, childLinks = self.__getTextAndLinksRecursive(c, nextChildStartIndex)
                 childrenText += childText
-                childrenLinks += childLinks
-                childrenTextLength += len(childrenText)
+                links += childLinks
+                nextChildStartIndex += len(childText)
 
             # extract own link
             if(x.name == "a" and "href" in x.attrs):
@@ -97,17 +96,13 @@ class Extraction:
                 if "class" in x.attrs and "external" in x["class"]:
                     external = True
 
-                newLink = Link(href, childrenText, curIndex, curIndex + childrenTextLength, external)
+                newLink = Link(href, childrenText, startIndex, startIndex + len(childrenText), external)
                 links.append(newLink)
-            else:
-                links += childrenLinks
             
-            s += childrenText
-            curIndex += childrenTextLength
+            return childrenText, links
         else:
             raise Exception(str(x) + " Type: " + str(type(x)))
         
-        return s, links
     
     def __parseEventTagRecursive(self, x, links=None, sourceLinks=None, startIndex=0) -> Tuple[str, list[Link], str, list[Link]]:
         text = ""
@@ -737,43 +732,53 @@ class Extraction:
             link2topic_label = {}
 
             if len(links) == 1:
+                # use whole text as topic label
                 link2topic_label[links[0]] = text
 
             elif len(links) > 1:
-                topic_label_seperators = []
+                # split text by comma seperator between links and use pieces for links
+                # between each comma as topic labels
+                topic_label_seperators = set()
 
-                # add commas outside of links
+                # add commas outside of links to seperator list
                 for match in re.finditer(r',', text):
+                    in_link = False
                     for link in links:
                         if match.start() >= link.startPos and match.end() <= link.endPos:
-                            continue
-                        else:
-                            topic_label_seperators.append((match.start(), match.end()))
-                    
-                sorted_seperators = sorted(topic_label_seperators, key=lambda x: x[0])
+                            in_link = True
+                    if not in_link:
+                        topic_label_seperators.add((match.start(), match.end()))
 
                 # assign topic labels
-                if not sorted_seperators:
+                if not topic_label_seperators:
+                    # no text seperators found => each topic link gets full text
                     for link in links:
                         link2topic_label[link] = text
                 else:
+                    # split text based on seperators between links
+                    sorted_seperators = sorted(list(topic_label_seperators), key=lambda x: x[0])
                     sorted_links = sorted(links, key=lambda x: x.startPos)
-                    current_seperator_index = 0
+                    current_seperator_index = 0 # current label end
                     label_start = 0
                     label_end = sorted_seperators[current_seperator_index][0]
 
                     for link in sorted_links:
-                        # move to next label if link is further forward
-                        if link.endPos >= label_end:
+                        if link.endPos > label_end:
+                            # move to next label if link is after current end of label
                             if current_seperator_index+1 < len(sorted_seperators):
+                                # move to next seperator if available
                                 label_start = sorted_seperators[current_seperator_index][0]
                                 label_end = sorted_seperators[current_seperator_index+1][0]
                                 current_seperator_index += 1
                             else:
+                                # use text end as last sepreator
                                 label_start = sorted_seperators[current_seperator_index][0]
                                 label_end = len(text)
+                            
+                            label_start += 1 # skip "," seperator char
                         
-                        link2topic_label[link] = text[label_start:label_end]
+                        label = text[label_start:label_end]
+                        link2topic_label[link] = label.strip()
                 
             # create topics
             for i, link in enumerate(links):
