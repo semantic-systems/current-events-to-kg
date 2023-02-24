@@ -1064,6 +1064,7 @@ class Extraction:
                     ## format with categories from 2004
                     for i in categories:
                         category, _ = self.__getTextAndLinksRecursive(i)
+                        category = category.strip()
                         eventList = i.find_next_sibling("ul")
                         if eventList: # in case of empty category blocks...
                             event_lists[category] = eventList
