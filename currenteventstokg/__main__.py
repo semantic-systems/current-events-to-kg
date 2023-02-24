@@ -86,6 +86,10 @@ if __name__ == '__main__':
         action='store_true', 
         help="Only include Boulder County Fires Topic from 1.1.2022 with Event")
     
+    parser.add_argument('-dsm', '--double_sample_mode', 
+        action='store_true', 
+        help="Runs a second time on -sm to test caching.")
+    
     parser.add_argument('-da', '--development_analytics', 
         action='store_true', 
         help="Enable analytics which were useful during development, which normally would use unnessesary resources.")
@@ -192,11 +196,14 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # override args in certain modes
-    if args.sample_mode:
+    if args.sample_mode or args.double_sample_mode:
         args.start = "1/2022"
         args.end = "1/2022"
         args.monthly_start_day = 1
         args.monthly_end_day = 1
+    
+    if args.double_sample_mode:
+        args.sample_mode = True
     
     if args.update_mode:
         # updating => parse all everything again
@@ -360,6 +367,14 @@ if __name__ == '__main__':
         print("These months were skipped due to Exceptions:")
         print_months(unparsed_months)
     
+
+    # second run on already cached data to test the cached data integrity
+    if args.double_sample_mode:
+        print("Run second time on sample mode:")
+        sourceUrl, page = i.fetchCurrentEventsPage("January_2022")
+        e.parsePage(sourceUrl, page, 2022, "January")
+        o.save("sample2")
+
 
 
     
