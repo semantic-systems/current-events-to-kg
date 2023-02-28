@@ -11,6 +11,7 @@ from pickle import dump
 from string import Template
 from time import time_ns
 from typing import Dict, Generator, List, Optional, Tuple, Union
+from urllib.parse import urldefrag
 
 from bs4 import BeautifulSoup, NavigableString, Tag
 from rdflib import Graph, URIRef
@@ -596,8 +597,12 @@ class Extraction:
         pageGraph = json.loads(articleGraphTag.string)
         # get 'real' url of page, due to redirects etc
         graphUrl = pageGraph["url"]
+        
+        # remove url fragments
+        articleUrl = urldefrag(graphUrl).url
+
         # test again if it is eg redict page
-        if not self.__testIfUrlIsArticle(graphUrl):
+        if not self.__testIfUrlIsArticle(articleUrl):
             return None
         
         # extract various info
@@ -705,7 +710,7 @@ class Extraction:
         td = (time_ns() - t) / 10**6
         self.analytics.avgArticleExtractionTime.add_value(float(td))
 
-        return Article(graphUrl, locFlag, coord, str(ib), ibRows, ib_coordinates, str(articleGraphTag.string), templates, 
+        return Article(articleUrl, locFlag, coord, str(ib), ibRows, ib_coordinates, str(articleGraphTag.string), templates, 
                 wiki_wkts, wikidataEntityURI, wd_one_hop_g, parent_locations_and_relation, 
                 entity_label_dict, microformats, datePublished, dateModified, name, headline)
 
