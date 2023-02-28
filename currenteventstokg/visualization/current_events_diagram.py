@@ -85,7 +85,34 @@ class Diagram():
 
         ax.set_title(title)
         ax.set_ylabel(f"\\textbf{{{y_label}}}")
+        if x_label:
+            ax.set_xlabel(f"\\textbf{{{x_label}}}")
+    
+
+    def _create_multi_attr_bar_chart(self, ax:plt.Axes, data:Dict[str,List[int]], 
+            x_labels, title:str, x_label:str, y_label:str):  
+        
+        x_sub_labels = list(data.keys())    
+        x = np.arange(len(data[x_sub_labels[0]]))  # the label locations
+        width = 0.25  # the width of the bars
+        multiplier = 0
+
+        for x_sub_label, y in data.items():
+            offset = width * multiplier
+            rects = ax.bar(x + offset, y, width, label=x_sub_label)
+            #ax.bar_label(rects, padding=3)
+            multiplier += 1
+
+        # Add some text for labels, title and custom x-axis tick labels, etc.
+        ax.set_ylabel(f"\\textbf{{{y_label}}}")
         ax.set_xlabel(f"\\textbf{{{x_label}}}")
+        ax.set_xticks(x + width, x_labels)
+        ax.legend(loc='upper left', ncols=2)
+        _,ylim = ax.get_ylim()
+        ax.set_ylim(0, ylim*1.1)
+        ax.minorticks_off()
+
+
 
 
     def _create_bar_chart_per_month(self, data, title:str, x_label:str, y_label:str, ax:plt.Axes=None, legend_labels:List=None):
@@ -127,6 +154,10 @@ class Diagram():
         ax.set_title(title)
         ax.set_ylabel(f"\\textbf{{{y_label}}}")
         ax.set_xlabel(f"\\textbf{{{x_label}}}")
+    
+    
+    
+
 
 class CurrentEventDiagram(Diagram):
     def __init__(self, sub_dir_name:str, graph_names:List[str], graph_modules=["base"], graph_class:CurrentEventsGraphABC=CurrentEventsGraphSplit):

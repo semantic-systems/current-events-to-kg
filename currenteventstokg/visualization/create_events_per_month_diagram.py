@@ -81,7 +81,7 @@ class NumEventsPerMonthDiagram(CurrentEventDiagram):
     def createDiagram(self, force=True):
         cache_path = self.cache_dir / f"{self.filename}.json"
         if exists(cache_path) and not force:
-            data = self.__load_json(cache_path)
+            data = self._load_json(cache_path)
         else:
             q = """
                 PREFIX coy: <https://schema.coypu.org/global#>
@@ -114,19 +114,22 @@ class NumEventsPerMonthDiagram(CurrentEventDiagram):
                     num = int(row["num"])
 
                     if year not in data:
-                        data[year] = np.full(12, np.nan)
+                        data[year] = list(np.full(12, np.nan))
                     data[year][month-1] = num
+            
+            
+            self._dump_json(cache_path, data)
         
         print(data)
         
         fig = self._create_bar_chart_per_month(
             data, 
             None, 
-            "Month",
+            None,
             "Number of events",
         )
-        fig.set_figheight(3)
-        fig.set_figwidth(4)
+        fig.set_figheight(2)
+        fig.set_figwidth(3)
         fig.savefig(
             self.diagrams_dir / f"{self.filename}.svg",
             #dpi=400,
@@ -136,7 +139,7 @@ class NumEventsPerMonthDiagram(CurrentEventDiagram):
 
 
 if __name__ == "__main__":
-    graphs = graph_name_list(202202, 202208)
+    graphs = graph_name_list(202202, 202302)
     print(graphs)
 
     parser = argparse.ArgumentParser()

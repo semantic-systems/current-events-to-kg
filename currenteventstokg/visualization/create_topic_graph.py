@@ -634,7 +634,7 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
 
-    m = graph_name_list(202202, 202208)
+    m = graph_name_list(202202, 202302)
     print(m)
 
     if args.type == "gif":
