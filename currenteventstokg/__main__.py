@@ -1,4 +1,4 @@
-# Copyright: (c) 2022, Lars Michaelis
+# Copyright: (c) 2022-2023, Lars Michaelis
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 import argparse
@@ -21,6 +21,7 @@ from .wikidataService import WikidataService
 from .falcon2Service import Falcon2Service
 from .placeTemplatesExtractor import PlacesTemplatesExtractor
 from .etc import months
+from .articleExtractor import ArticleExtractor
 
 def print_months(months:List[str]):
     for m in months:
@@ -240,7 +241,8 @@ if __name__ == '__main__':
     w = WikidataService(basedir, args, a, __progName__, __progVersion__, __progGitRepo__, 
         args.wikidata_endpoint, minSecondsBetweenQueries=args.wikidata_request_spacing)
     f = Falcon2Service(basedir, args, a)
-    e = Extraction(basedir, i, o, a, n, w, f, p, args, parser)
+    ae = ArticleExtractor(i, a, n, w, f, p, args, parser)
+    e = Extraction(basedir, i, o, a, ae, args, parser)
 
     # start date (inclusive)
     start = args.start.split("/")
