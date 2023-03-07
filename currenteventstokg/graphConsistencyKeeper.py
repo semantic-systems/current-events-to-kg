@@ -5,13 +5,17 @@ from string import Template
 from typing import Generator, List, Optional
 
 from rdflib import RDF, Graph, URIRef
-from SPARQLWrapper import DIGEST, JSON, POST, QueryResult, SPARQLWrapper
+from SPARQLWrapper import DIGEST, JSON, POST, QueryResult, SPARQLWrapper, BASIC
 
 from . import COY, GN
+from argparse import ArgumentParser
 
 
 class GraphConsistencyKeeper:
-    def __init__(self, sparql_endpoint:str, subgraph:str, sparql_endpoint_user:Optional[str], sparql_endpoint_pw:Optional[str]):
+    def __init__(self, 
+            sparql_endpoint:str, subgraph:str, sparql_endpoint_user:Optional[str], 
+            sparql_endpoint_pw:Optional[str], sparql_endpoint_auth_type:str
+        ):
         self.subgraph = subgraph
         self.potential_from_clause = f"FROM <{self.subgraph}>" if self.subgraph else ""
         self.potential_with_clause = f"WITH <{self.subgraph}>" if self.subgraph else ""
@@ -21,8 +25,15 @@ class GraphConsistencyKeeper:
         self.sparql.setReturnFormat(JSON)
 
         if sparql_endpoint_user and sparql_endpoint_pw:
-            self.sparql.setHTTPAuth(DIGEST)
+            print(sparql_endpoint_auth_type)
+            if sparql_endpoint_auth_type == "digest":
+                self.sparql.setHTTPAuth(DIGEST)
+            elif sparql_endpoint_auth_type == "basic":
+                self.sparql.setHTTPAuth(BASIC)
+            else:
+                raise ValueError("Auth type must be either 'digest' or 'basic'")
             self.sparql.setCredentials(sparql_endpoint_user, sparql_endpoint_pw)
+            
 
         elif sparql_endpoint_user or sparql_endpoint_pw:
             # only one is defined
@@ -419,19 +430,13 @@ SELECT DISTINCT ?c WHERE {
         wd_class_uris = self.query_wd_class_uris_which_have_label(new_graph)
         for uri in wd_class_uris:
             self.delete_label_triples(uri)
-    
 
-if __name__ == "__main__":
-    import argparse
-    import os
-    from pathlib import Path
 
-    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-
+def add_dataset_endpoint_args(parser:ArgumentParser, required_endpoint:bool=False):
     parser.add_argument('-de', '--dataset_endpoint',
         action='store', 
-        help="Sets the sparql endpoint URL of the dataset from which data will be removed if the parent entities also exist in the graph file.",
-        required=True)
+        help="Sets the sparql endpoint URL of the dataset from which data will be removed if the parent entities also exist in the graph.",
+        required=required_endpoint)
     
     parser.add_argument('-des', '--dataset_endpoint_subgraph',
         action='store', 
@@ -445,6 +450,23 @@ if __name__ == "__main__":
         action='store', 
         help="The password used for the dataset sparql endpoint.")
     
+    parser.add_argument('-deat', '--dataset_endpoint_auth_type',
+        action='store', 
+        help="The auth type used for the dataset sparql endpoint.",
+        type=str,
+        choices=["basic", "digest"],
+        default="basic")
+    
+
+if __name__ == "__main__":
+    import argparse
+    import os
+    from pathlib import Path
+
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+    add_dataset_endpoint_args(parser)
+    
     parser.add_argument('-i', '--input',
         action='store', 
         help="The path of the base graph module file.",
@@ -456,7 +478,8 @@ if __name__ == "__main__":
         args.dataset_endpoint, 
         args.dataset_endpoint_subgraph, 
         args.dataset_endpoint_username, 
-        args.dataset_endpoint_pw
+        args.dataset_endpoint_pw,
+        args.dataset_endpoint_auth_type,
     )
 
     # load all graph modules
