@@ -38,7 +38,7 @@ if __name__ == '__main__':
     basedir, _ = split(abspath(__file__))
     basedir = Path(basedir)
 
-    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter, fromfile_prefix_chars='!')
     # store_true
     parser.add_argument('-fp', '--force_parse', 
         action='store_true', 
