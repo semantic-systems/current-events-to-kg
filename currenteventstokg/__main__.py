@@ -22,6 +22,7 @@ from .falcon2Service import Falcon2Service
 from .placeTemplatesExtractor import PlacesTemplatesExtractor
 from .etc import months
 from .articleExtractor import ArticleExtractor
+from .graphConsistencyKeeper import add_dataset_endpoint_args
 
 def print_months(months:List[str]):
     for m in months:
@@ -45,7 +46,7 @@ if __name__ == '__main__':
     basedir, _ = split(abspath(__file__))
     basedir = Path(basedir)
 
-    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter, fromfile_prefix_chars='!')
     # store_true
     parser.add_argument('-fp', '--force_parse', 
         action='store_true', 
@@ -177,22 +178,8 @@ if __name__ == '__main__':
         help="Minimum seconds between requests to the nominatim endpoint (only change to values allowed by your endpoint!)", 
         default=2)
     
-    parser.add_argument('-de', '--dataset_endpoint',
-        action='store', 
-        help="Sets the sparql endpoint URL of the dataset.")
-    
-    parser.add_argument('-des', '--dataset_endpoint_subgraph',
-        action='store', 
-        help="The subgraph used for the dataset.")
-    
-    parser.add_argument('-deu', '--dataset_endpoint_username',
-        action='store', 
-        help="The username used for the dataset sparql endpoint.")
-    
-    parser.add_argument('-dep', '--dataset_endpoint_pw',
-        action='store', 
-        help="The password used for the dataset sparql endpoint.")
-    
+    # add args required for the graph consitency keeper
+    add_dataset_endpoint_args(parser)
     
     args = parser.parse_args()
 

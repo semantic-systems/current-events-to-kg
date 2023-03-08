@@ -44,7 +44,8 @@ class OutputRdf:
             self.args.dataset_endpoint, 
             self.args.dataset_endpoint_subgraph, 
             self.args.dataset_endpoint_username, 
-            self.args.dataset_endpoint_pw
+            self.args.dataset_endpoint_pw,
+            self.args.dataset_endpoint_auth_type,
         )
 
 
