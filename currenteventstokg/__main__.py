@@ -228,7 +228,7 @@ if __name__ == '__main__':
     w = WikidataService(basedir, args, a, __progName__, __progVersion__, __progGitRepo__, 
         args.wikidata_endpoint, minSecondsBetweenQueries=args.wikidata_request_spacing)
     f = Falcon2Service(basedir, args, a)
-    ae = ArticleExtractor(i, a, n, w, f, p, args, parser)
+    ae = ArticleExtractor(basedir, i, a, n, w, f, p, args, parser)
     e = Extraction(basedir, i, o, a, ae, args, parser)
 
     # start date (inclusive)

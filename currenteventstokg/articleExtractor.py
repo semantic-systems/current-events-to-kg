@@ -10,6 +10,9 @@ from string import Template
 from time import time_ns
 from typing import Dict, Generator, List, Optional, Tuple, Union
 from urllib.parse import urldefrag
+from os import makedirs
+import logging
+
 
 from bs4 import BeautifulSoup, NavigableString, Tag
 from rdflib import Graph, URIRef
@@ -28,9 +31,10 @@ from .wikidataService import WikidataService
 
 
 class ArticleExtractor:
-    def __init__(self, inputData, analytics: Analytics, 
+    def __init__(self, basedir, inputData, analytics: Analytics, 
             nominatimService: NominatimService, wikidataService: WikidataService,
-            falcon2Service: Falcon2Service, place_templates_extractor:PlacesTemplatesExtractor, args, bs_parser:str):
+            falcon2Service: Falcon2Service, place_templates_extractor:PlacesTemplatesExtractor, 
+            args, bs_parser:str):
         self.inputData = inputData
         self.analytics = analytics
         self.nominatimService = nominatimService
@@ -38,6 +42,25 @@ class ArticleExtractor:
         self.falcon2Service = falcon2Service
         self.place_templates = place_templates_extractor.get_templates(args.force_parse)
         self.bs_parser = bs_parser
+
+        # debug logger init
+        logdir = basedir / "logs"
+        makedirs(logdir, exist_ok=True)
+
+        timeParseErrorLogger = logging.getLogger('timeParseError')
+        timeParseErrorLogger.setLevel(logging.DEBUG)
+        timeHandler = logging.FileHandler(logdir / "timeParseError.log", encoding='utf-8')
+        timeHandler.setFormatter(logging.Formatter('%(message)s'))
+        timeParseErrorLogger.addHandler(timeHandler)
+
+        dateParseErrorLogger = logging.getLogger('dateParseError')
+        dateParseErrorLogger.setLevel(logging.DEBUG)
+        dateHandler = logging.FileHandler(logdir / "dateParseError.log", encoding='utf-8')
+        dateHandler.setFormatter(logging.Formatter('%(message)s'))
+        dateParseErrorLogger.addHandler(dateHandler)
+
+        self.timeParseErrorLogger = timeParseErrorLogger
+        self.dateParseErrorLogger = dateParseErrorLogger
 
 
     # !!! check article_recursions_left > 0 or set it to a known value BEFORE calling this function 

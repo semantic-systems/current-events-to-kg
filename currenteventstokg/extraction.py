@@ -3,9 +3,7 @@
 
 import copy
 import datetime
-import logging
 import re
-from os import makedirs
 from typing import Dict, Generator, List, Optional, Tuple, Union
 
 from bs4 import BeautifulSoup, NavigableString, Tag
@@ -35,25 +33,6 @@ class Extraction:
         self.bs_parser = bs_parser
 
         self.article_recursions = 2
-        
-        # debug logger init
-        logdir = self.basedir / "logs"
-        makedirs(logdir, exist_ok=True)
-
-        timeParseErrorLogger = logging.getLogger('timeParseError')
-        timeParseErrorLogger.setLevel(logging.DEBUG)
-        timeHandler = logging.FileHandler(logdir / "timeParseError.log", encoding='utf-8')
-        timeHandler.setFormatter(logging.Formatter('%(message)s'))
-        timeParseErrorLogger.addHandler(timeHandler)
-
-        dateParseErrorLogger = logging.getLogger('dateParseError')
-        dateParseErrorLogger.setLevel(logging.DEBUG)
-        dateHandler = logging.FileHandler(logdir / "dateParseError.log", encoding='utf-8')
-        dateHandler.setFormatter(logging.Formatter('%(message)s'))
-        dateParseErrorLogger.addHandler(dateHandler)
-
-        self.timeParseErrorLogger = timeParseErrorLogger
-        self.dateParseErrorLogger = dateParseErrorLogger
 
 
     def __parseEventTagRecursive(self, x, links=None, sourceLinks=None, startIndex=0) -> Tuple[str, list[Link], str, list[Link]]:
