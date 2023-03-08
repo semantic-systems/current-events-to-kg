@@ -41,7 +41,7 @@ def print_missing_analytics_months(months:List[str]):
 if __name__ == '__main__':
     __progName__ = "current-events-to-kg"
     __progVersion__ = "1.0"
-    __progGitRepo__ = "https://github.com/larsmic/current-events-to-kg"
+    __progGitRepo__ = "https://github.com/semantic-systems/current-events-to-kg"
 
     basedir, _ = split(abspath(__file__))
     basedir = Path(basedir)
