@@ -312,7 +312,10 @@ class Extraction:
         # extract events under their topics iteratively
         stack = []  # stack with [parentTopics, li]
 
-        lis = eventList.find_all("li", recursive=False)
+        def is_valid_li(tag:Tag):
+            return tag.name == "li" and \
+                not (tag.has_attr('class') and "mw-empty-elt" in tag.attrs["class"])
+        lis = eventList.find_all(is_valid_li, recursive=False)
         stack += [[[], li] for li in lis[::-1]]
         while(len(stack) > 0):
             # get next li tag with its topics
