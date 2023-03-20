@@ -46,14 +46,20 @@ class GraphConsistencyKeeper:
         self.already_deleted_label_triples = set()
     
 
-    def __query(self, q:str):
+    def __query(self, q:str) -> QueryResult:
         self.sparql.setQuery(q)
-        self.sparql.query()
+        for t in range(1,3):
+            try:
+                return self.sparql.query()
+            except Exception as e:
+                print(f"\ngraphConsistencyKeeper.py query try #{t} failed! Exception:")
+                print(e)
+                if t == 2:
+                    raise e
 
 
-    def __query_and_convert(self, q:str) -> QueryResult:
-        self.sparql.setQuery(q)
-        return self.sparql.queryAndConvert()
+    def __query_and_convert(self, q:str) -> QueryResult.ConvertResult:
+        return self.__query().convert()
 
 
     def __query_associated_articles(self, uri:URIRef) -> List[URIRef]:
