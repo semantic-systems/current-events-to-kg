@@ -59,7 +59,7 @@ class GraphConsistencyKeeper:
 
 
     def __query_and_convert(self, q:str) -> QueryResult.ConvertResult:
-        return self.__query().convert()
+        return self.__query(q).convert()
 
 
     def __query_associated_articles(self, uri:URIRef) -> List[URIRef]:
