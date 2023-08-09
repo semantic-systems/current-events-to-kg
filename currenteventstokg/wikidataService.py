@@ -213,7 +213,7 @@ SELECT DISTINCT ?osmrelid ?osmobj WHERE {
                     if isValidOSMRelation(value):
                         osmrelidsSet.add(value)
                 if "osmobj" in row:
-                    value = row["osmobj"]["value"]
+                    value = "way/" + row["osmobj"]["value"]
                     if isValidOSMObject(value):
                         osmobjsSet.add(value)
             
